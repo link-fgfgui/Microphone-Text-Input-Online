@@ -1,0 +1,54 @@
+# Gradle
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.vscode/
+out/
+*.swp
+*~
+
+# Minecraft / Loom run directories
+run/
+**/run/
+runs/
+**/runs/
+
+# Logs & crash reports
+logs/
+**/logs/
+crash-reports/
+**/crash-reports/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Java
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# Local env / secrets
+.env
+.env.*
+*.local
+
+# Fabric/NeoForge remapped caches sometimes outside build
+.loom-cache/
+**/remapped_working/

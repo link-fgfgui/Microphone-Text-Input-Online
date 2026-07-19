@@ -1,37 +1,11 @@
 package me.jaffe2718.mcmti.config;
 
 import eu.midnightdust.lib.config.MidnightConfig;
-import eu.midnightdust.lib.util.PlatformFunctions;
-import io.github.jaffe2718.whisperjni.LibraryUtils;
-import io.github.jaffe2718.whisperjni.WhisperFullParams;
-import me.jaffe2718.mcmti.MicrophoneTextInput;
+import me.jaffe2718.mcmti.asr.mimo.MimoAsrClient;
+import me.jaffe2718.mcmti.asr.openai.OpenAiCompatibleAsrClient;
 import me.jaffe2718.mcmti.util.SpeechRecognizer;
-import org.apache.commons.io.FileUtils;
-import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.NotNull;
-
-import javax.swing.JFileChooser;
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 public class McmtiConfig extends MidnightConfig {
-
-    /**
-     * Called when the config is saved.
-     * Use this to reload the whisper model & grammar
-     * Reflash whisper full params when config is saved
-     * @see McmtiConfig#wFullParams
-     */
-    @Override
-    public void writeChanges() {
-        super.writeChanges();
-        Thread.ofVirtual().start(SpeechRecognizer::init);
-        wFullParams = McmtiConfig.getParams();
-    }
 
     public enum Mode {
         AUTO_SEND,
@@ -40,33 +14,63 @@ public class McmtiConfig extends MidnightConfig {
     }
 
     /**
-     * Whisper sampling strategy, BEAM_SEARCH is the default
+     * Online ASR provider. Add new enum values when more backends are implemented.
      */
-    public enum SamplingStrategy {
-        GREEDY,
-        BEAM_SEARCH,
+    public enum AsrProvider {
+        /** Xiaomi MiMo-V2.5-ASR ({@code input_audio} + {@code asr_options}). */
+        MIMO,
+        /**
+         * OpenAI-compatible ASR (Qwen3-ASR / vLLM / DashScope, etc.).
+         * Uses {@code audio_url} chat completions or {@code /audio/transcriptions}.
+         */
+        OPENAI_COMPATIBLE,
     }
 
-    /**
-     * Whisper voice activity detection <br>
-     * <br>DISABLED: No voice activity detection
-     * <br>BUILT_IN: Built-in ggml-silero-v6.2.0.bin voice activity detection
-     * <br>CUSTOM: Custom voice activity detection, path required
-     */
-    public enum WhisperVad {
-        DISABLED,
-        BUILT_IN,
-        CUSTOM,
+    @Override
+    public void writeChanges() {
+        super.writeChanges();
+        Thread.ofVirtual().start(SpeechRecognizer::init);
     }
 
-    /**
-     * Whisper model path or url
-     */
-    @Entry(category = "general", selectionMode = JFileChooser.FILES_ONLY, width = 4096, fileExtensions = {"bin", "ggml", "gguf"})
-    public static String model = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin";
+    @Entry(category = "general")
+    public static AsrProvider asrProvider = AsrProvider.MIMO;
 
+    @Entry(category = "general", width = 128)
+    public static String apiBaseUrl = MimoAsrClient.DEFAULT_BASE_URL;
+
+    /**
+     * API key. Required for MiMo / cloud providers; optional for local OpenAI-compatible servers.
+     */
+    @Entry(category = "general", width = 128)
+    public static String apiKey = "";
+
+    @Entry(category = "general", width = 64)
+    public static String model = MimoAsrClient.DEFAULT_MODEL;
+
+    /**
+     * Language hint for ASR.
+     * MiMo: {@code auto}/{@code zh}/{@code en}. OpenAI-compatible: provider-dependent ({@code auto} omits language).
+     */
     @Entry(category = "general", width = 15)
-    public static String language = "en";
+    public static String language = "auto";
+
+    @Entry(category = "general", min = 1000, max = 300_000)
+    public static int requestTimeoutMs = 60_000;
+
+    /**
+     * OpenAI-compatible endpoint style (ignored by MiMo).
+     */
+    @Entry(category = "general")
+    @Condition(requiredOption = "asrProvider", requiredValue = "OPENAI_COMPATIBLE")
+    public static OpenAiCompatibleAsrClient.ApiStyle openaiApiStyle = OpenAiCompatibleAsrClient.ApiStyle.CHAT_COMPLETIONS;
+
+    /**
+     * System / context prompt for OpenAI-compatible ASR (hotwords, domain terms).
+     * Chat completions: system message. Transcriptions: {@code prompt} field.
+     */
+    @Entry(category = "general", width = 4096)
+    @Condition(requiredOption = "asrProvider", requiredValue = "OPENAI_COMPATIBLE")
+    public static String systemPrompt = "You are a speech-to-text engine for Minecraft in-game chat. Transcribe the speaker's words only into one plain chat line ready to send. Prefer correct Minecraft terms when the sound matches: creeper, zombie, skeleton, enderman, nether, end, villager, diamond, netherite, redstone, elytra, totem, shulker, portal, raid, village, minecart, crafting table, enchanting table, respawn, PvP, AFK, TPS, FPS, lag, server, lobby, spawn, home, warp, tpa, tpahere, msg, whisper, team, party, guild. Keep original language (Chinese or English or mixed). Output a single line of plain text only: no markdown, no quotes, no labels, no brackets, no timestamps, no speaker tags, no translation unless spoken, no explanations, no filler such as um or uh. Prefer Arabic digits for numbers. If nothing intelligible was said, output nothing.";
 
     @Entry(category = "general")
     public static Mode mode = Mode.RELEASE_KEY_TO_SEND;
@@ -80,326 +84,14 @@ public class McmtiConfig extends MidnightConfig {
     public static int recordBufferSize = 1024;    // unit: byte, default: 1024 bytes
 
     @Entry(category = "general", width = 64)
-    public static String prefix = "⌈Speech Input⌋";
-
-    @Entry(category = "general")
-    public static boolean encodingRepair = false;
-
-    @Entry(category = "general")
-    @Condition(requiredOption = "encodingRepair")
-    public static String srcEncoding = Charset.defaultCharset().displayName();   // use system encoding as default
-
-    @Entry(category = "general")
-    @Condition(requiredOption = "encodingRepair")
-    public static String dstEncoding = Charset.defaultCharset().displayName();   // use system encoding as default
-
-    @ApiStatus.Experimental
-    @Entry(category = "advanced")
-    public static boolean advancedConfig = false;
-
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    public static boolean useCustomDynamicLib = false;
-
-    @Entry(category = "advanced", width = 4096, selectionMode = JFileChooser.DIRECTORIES_ONLY)
-    @Condition(requiredOption = "advancedConfig")
-    @Condition(requiredOption = "useCustomDynamicLib")
-    public static String customDynamicLibDir = "";
+    public static String prefix = "🎤";
 
     /**
-     * Number of thread, 0 for max cores
+     * Suggested defaults when switching to OpenAI-compatible (for docs / manual use).
      */
-    @Entry(category = "advanced", min = 0)
-    @Condition(requiredOption = "advancedConfig")
-    public static int nThreads = 0;
-
-    /**
-     * Overwrite the audio context size (0 = use default)
-     */
-    @Entry(category = "advanced", min = 0)
-    @Condition(requiredOption = "advancedConfig")
-    public static int audioCtx;
-
-    /**
-     * Max tokens to use from past text as prompt for the decoder
-     */
-    @Entry(category = "advanced", min = 1024)
-    @Condition(requiredOption = "advancedConfig")
-    public static int nMaxTextCtx = 16384;
-
-    /**
-     * Start offset in ms
-     */
-    @Entry(category = "advanced", min = 0)
-    @Condition(requiredOption = "advancedConfig")
-    public static int offsetMs;
-
-    /**
-     * Audio duration to process in ms
-     */
-    @Entry(category = "advanced", min = 0)
-    @Condition(requiredOption = "advancedConfig")
-    public static int durationMs;
-
-    /**
-     * Translate
-     */
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    public static boolean translate;
-
-    /**
-     * Do not generate timestamps
-     */
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    public static boolean noTimestamps;
-
-    /**
-     * Initial prompt
-     */
-    @Entry(category = "advanced", width = 4096)
-    @Condition(requiredOption = "advancedConfig")
-    public static String initialPrompt = "";
-
-    /**
-     * Do not use past transcription (if any) as initial prompt for the decoder
-     */
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    public static boolean noContext = true;
-
-    /**
-     * Force single segment output (useful for streaming)
-     */
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    public static boolean singleSegment;
-
-    /**
-     * Print special tokens
-     */
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    public static boolean printSpecial;
-
-    /**
-     * Decoder option
-     */
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    public static boolean suppressBlank = true;
-
-    /**
-     * Tokenizer option
-     */
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    public static boolean suppressNonSpeechTokens = true;
-
-    /**
-     * Initial decoding temperature
-     */
-    @Entry(category = "advanced", min = 0f, max = 2f, isSlider = true, precision = 200)
-    @Condition(requiredOption = "advancedConfig")
-    public static float temperature = 0.0f;
-
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    public static float maxInitialTs = 1.0f;
-
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    public static float lengthPenalty = -1.0f;
-
-    @Entry(category = "advanced", min = 0f)
-    @Condition(requiredOption = "advancedConfig")
-    public static float temperatureInc =   0.4f;
-
-    @Entry(category = "advanced", min = 0f)
-    @Condition(requiredOption = "advancedConfig")
-    public static float entropyThold =   2.4f;
-
-    @Entry(category = "advanced", max = 0f)
-    @Condition(requiredOption = "advancedConfig")
-    public static float logprobThold =  -1.0f;
-
-    @Entry(category = "advanced", min = 0f, max = 1f, isSlider = true, precision = 200)
-    @Condition(requiredOption = "advancedConfig")
-    public static float noSpeechThold =   0.6f;
-
-
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    public static SamplingStrategy whisperSamplingStrategy = SamplingStrategy.BEAM_SEARCH;
-
-    /**
-     * Specific to greedy sampling strategy
-     */
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    @Condition(requiredOption = "whisperSamplingStrategy", requiredValue = "GREEDY")
-    public static int greedyBestOf = -1;
-
-    /**
-     * Specific to bean search sampling strategy
-     */
-    @Entry(category = "advanced", min = 1)
-    @Condition(requiredOption = "advancedConfig")
-    @Condition(requiredOption = "whisperSamplingStrategy", requiredValue = "BEAM_SEARCH")
-    public static int beamSearchBeamSize = 2;
-
-    /**
-     * Specific to bean search sampling strategy
-     */
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    @Condition(requiredOption = "whisperSamplingStrategy", requiredValue = "BEAM_SEARCH")
-    public static float beamSearchPatience = -1.0f;
-
-    @Entry(category = "advanced", selectionMode = JFileChooser.FILES_ONLY, fileExtensions = {"gbnf"})
-    @Condition(requiredOption = "advancedConfig")
-    public static String grammar = "";        // No grammar if the field is empty
-
-    /**
-     * Penalty for non grammar tokens.
-     */
-    @Entry(category = "advanced", min = 0)
-    @Condition(requiredOption = "advancedConfig")
-    public static float grammarPenalty = 100f;
-
-    @Entry(category = "advanced")
-    @Condition(requiredOption = "advancedConfig")
-    public static WhisperVad vad = WhisperVad.DISABLED;
-
-    @Entry(category = "advanced", selectionMode = JFileChooser.FILES_ONLY, width = 4096, fileExtensions = {"bin", "ggml", "gguf"})
-    @Condition(requiredOption = "advancedConfig")
-    @Condition(requiredOption = "vad", requiredValue = "CUSTOM")
-    public static String vad_model_path = "";
-
-    @Entry(category = "advanced", min = 0f, max = 1f, isSlider = true, precision = 200)
-    @Condition(requiredOption = "advancedConfig")
-    @Condition(requiredOption = "vad", requiredValue = {"BUILT_IN", "CUSTOM"})
-    public static float vad__threshold = 0.5f;
-
-    @Entry(category = "advanced", min = 0)
-    @Condition(requiredOption = "advancedConfig")
-    @Condition(requiredOption = "vad", requiredValue = {"BUILT_IN", "CUSTOM"})
-    public static int vad__min_speech_duration_ms = 250;
-
-    @Entry(category = "advanced", min = 0)
-    @Condition(requiredOption = "advancedConfig")
-    @Condition(requiredOption = "vad", requiredValue = {"BUILT_IN", "CUSTOM"})
-    public static int vad__min_silence_duration_ms = 100;
-
-    @Entry(category = "advanced", min = 0f)
-    @Condition(requiredOption = "advancedConfig")
-    @Condition(requiredOption = "vad", requiredValue = {"BUILT_IN", "CUSTOM"})
-    public static float vad__max_speech_duration_s = Float.MAX_VALUE;
-
-    @Entry(category = "advanced", min = 0)
-    @Condition(requiredOption = "advancedConfig")
-    @Condition(requiredOption = "vad", requiredValue = {"BUILT_IN", "CUSTOM"})
-    public static int vad__speech_pad_ms = 30;
-
-    @Entry(category = "advanced", min = 0f)
-    @Condition(requiredOption = "advancedConfig")
-    @Condition(requiredOption = "vad", requiredValue = {"BUILT_IN", "CUSTOM"})
-    public static float vad__samples_overlap = 0.1f;
-
-    /**
-     * Get whisper full params
-     * @return WhisperFullParams
-     * @see WhisperFullParams
-     */
-    private static @NotNull WhisperFullParams getParams() {
-        WhisperFullParams params;
-        if (advancedConfig) {
-            params = new WhisperFullParams(whisperSamplingStrategy.ordinal());
-            params.nThreads = nThreads;
-            params.audioCtx = audioCtx;
-            params.nMaxTextCtx = nMaxTextCtx;
-            params.offsetMs = offsetMs;
-            params.temperature = temperature;
-            params.maxInitialTs = maxInitialTs;
-            params.lengthPenalty = lengthPenalty;
-            params.temperatureInc = temperatureInc;
-            params.entropyThold = entropyThold;
-            params.logprobThold = logprobThold;
-            params.noSpeechThold = noSpeechThold;
-            params.greedyBestOf = greedyBestOf;
-            params.beamSearchBeamSize = beamSearchBeamSize;
-            params.beamSearchPatience = beamSearchPatience;
-            params.grammarPenalty = grammarPenalty;
-            params.suppressNonSpeechTokens = suppressNonSpeechTokens;
-            params.suppressBlank = suppressBlank;
-            params.printSpecial = printSpecial;
-            params.singleSegment = singleSegment;
-            params.initialPrompt = initialPrompt.isBlank() ? null : initialPrompt;
-            params.noContext = noContext;
-            params.translate = translate;
-            params.noTimestamps = noTimestamps;
-            params.durationMs = durationMs;
-            params.vad = vad != WhisperVad.DISABLED;
-            if (params.vad) {
-                if (vad == WhisperVad.BUILT_IN) {
-                    params.vad_model_path = extractBuiltinVad();
-                } else if (vad == WhisperVad.CUSTOM && !vad_model_path.isBlank() && new File(vad_model_path).isFile()) {
-                    params.vad_model_path = vad_model_path;
-                } else {
-                    params.vad = false;           // Disable VAD if no valid model path
-                    params.vad_model_path = null;
-                }
-                params.vadParams.threshold = vad__threshold;
-                params.vadParams.min_speech_duration_ms = vad__min_speech_duration_ms;
-                params.vadParams.min_silence_duration_ms = vad__min_silence_duration_ms;
-                params.vadParams.max_speech_duration_s = vad__max_speech_duration_s;
-                params.vadParams.speech_pad_ms = vad__speech_pad_ms;
-                params.vadParams.samples_overlap = vad__samples_overlap;
-            }
-        } else {
-            params = new WhisperFullParams();
-            params.suppressBlank = true;
-            params.suppressNonSpeechTokens = true;
-        }
-        params.language = language;
-        return params;
-    }
-
-    /**
-     * Whisper full params, updated when config is saved
-     * @see McmtiConfig#getParams()
-     * @see McmtiConfig#writeChanges()
-     */
-    public static @NotNull WhisperFullParams wFullParams = McmtiConfig.getParams();
-
-    /**
-     * Extract builtin vad model if not exists
-     * <a href="https://huggingface.co/ggml-org/whisper-vad/blob/main/ggml-silero-v6.2.0.bin"><br>ggml-silero-v6.2.0.bin<br></a>
-     */
-    private static @NotNull String extractBuiltinVad() {
-        Path vadPath = PlatformFunctions.getConfigDirectory().resolve("ggml-silero-v6.2.0.bin");
-        boolean valid = vadPath.toFile().exists() && vadPath.toFile().isFile();
-        if (valid) {    // get sha256
-            try {
-                MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
-                messageDigest.update(FileUtils.readFileToByteArray(vadPath.toFile()));
-                byte[] sha256b = messageDigest.digest();
-                StringBuilder sha256Str = new StringBuilder();
-                for (byte b : sha256b) {
-                    sha256Str.append(String.format("%02x", 0xff & b));
-                }
-                valid = "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987".contentEquals(sha256Str);
-            } catch (NoSuchAlgorithmException | IOException ignored) {
-                valid = false;
-            }
-        }
-        if (!valid) {
-            try {
-                FileUtils.deleteQuietly(vadPath.toFile());
-                LibraryUtils.exportVADModel(MicrophoneTextInput.LOGGER, vadPath);
-            } catch (IOException ignored) {}
-        }
-        return vadPath.toString();
+    public static void applyOpenAiCompatibleSuggestedDefaults() {
+        apiBaseUrl = OpenAiCompatibleAsrClient.DEFAULT_BASE_URL;
+        model = OpenAiCompatibleAsrClient.DEFAULT_MODEL;
+        openaiApiStyle = OpenAiCompatibleAsrClient.ApiStyle.CHAT_COMPLETIONS;
     }
 }

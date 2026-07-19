@@ -1,94 +1,85 @@
 package me.jaffe2718.mcmti.util;
 
 import me.jaffe2718.mcmti.MicrophoneTextInput;
+import me.jaffe2718.mcmti.asr.AsrException;
+import me.jaffe2718.mcmti.asr.AsrRequest;
+import me.jaffe2718.mcmti.asr.AsrResult;
+import me.jaffe2718.mcmti.asr.SpeechAsrClient;
+import me.jaffe2718.mcmti.asr.SpeechAsrClients;
 import me.jaffe2718.mcmti.config.McmtiConfig;
-import io.github.jaffe2718.whisperjni.WhisperContext;
-import io.github.jaffe2718.whisperjni.WhisperFullParams;
-import io.github.jaffe2718.whisperjni.WhisperGrammar;
-import io.github.jaffe2718.whisperjni.WhisperJNI;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.text.Text;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
+/**
+ * Facade over the configured online {@link SpeechAsrClient}.
+ */
 public final class SpeechRecognizer {
-    public static final WhisperJNI WHISPER = new WhisperJNI();
-    private static volatile SpeechRecognizer INSTANCE;
+    private static volatile @Nullable SpeechAsrClient client;
 
-    final @NotNull WhisperContext ctx;
-    final @Nullable WhisperGrammar grammar;
+    private SpeechRecognizer() {}
 
-    public static SpeechRecognizer instance() {
-        return INSTANCE;
+    public static boolean isReady() {
+        SpeechAsrClient c = client;
+        return c != null && c.isReady();
     }
 
-    public synchronized static void init() {
+    public static synchronized void init() {
         destroy();
+        SpeechAsrClient created = SpeechAsrClients.createFromConfig();
+        client = created;
+        if (created.isReady()) {
+            MicrophoneTextInput.LOGGER.info(
+                    "Speech recognizer ready (provider={}, model={}, baseUrl={})",
+                    created.providerId(),
+                    McmtiConfig.model,
+                    McmtiConfig.apiBaseUrl
+            );
+        } else {
+            MicrophoneTextInput.LOGGER.warn(
+                    "Speech recognizer not ready: configure API base URL / key in mod config (provider={})",
+                    created.providerId()
+            );
+        }
+    }
+
+    public static synchronized void destroy() {
+        SpeechAsrClient old = client;
+        client = null;
+        if (old != null) {
+            try {
+                old.close();
+            } catch (Exception e) {
+                MicrophoneTextInput.LOGGER.debug("Error closing ASR client", e);
+            }
+        }
+    }
+
+    /**
+     * Transcribe PCM audio via the configured online speech recognition service.
+     *
+     * @param pcmAudio little-endian 16-bit mono PCM at {@link AudioRecorder#SAMPLE_RATE} Hz
+     * @return recognized text, or empty string on failure / no speech
+     */
+    public static @NotNull String recognize(byte @NotNull [] pcmAudio) {
+        SpeechAsrClient c = client;
+        if (c == null || !c.isReady() || pcmAudio.length == 0) {
+            return "";
+        }
         try {
-            if (MinecraftClient.getInstance() != null
-                    && MinecraftClient.getInstance().player instanceof ClientPlayerEntity player) {
-                player.sendMessage(Text.translatable("message.mcmti.whisperModelLoading"), true);
-            }
-            INSTANCE = new SpeechRecognizer();
-            if (MinecraftClient.getInstance() != null
-                    && MinecraftClient.getInstance().player instanceof ClientPlayerEntity player) {
-                player.sendMessage(Text.translatable("message.mcmti.whisperModelLoaded"), true);
-            }
-        } catch (IOException e) {
-            MicrophoneTextInput.LOGGER.error("Failed to initialize speech recognizer", e);
+            AsrResult result = c.transcribe(new AsrRequest(
+                    pcmAudio,
+                    AudioRecorder.SAMPLE_RATE,
+                    McmtiConfig.language
+            ));
+            return result.text().trim();
+        } catch (AsrException e) {
+            MicrophoneTextInput.LOGGER.error("Speech recognition failed: {}", e.getMessage());
+            return "";
+        } catch (Exception e) {
+            MicrophoneTextInput.LOGGER.error("Unexpected speech recognition error", e);
+            return "";
         }
-    }
-
-
-    @SuppressWarnings("ConstantValue")
-    public synchronized static void destroy() {
-        if (INSTANCE != null) {
-            if (INSTANCE.ctx != null) {
-                INSTANCE.ctx.close();
-            }
-            if (INSTANCE.grammar != null) {
-                WHISPER.free(INSTANCE.grammar);
-            }
-            INSTANCE = null;
-        }
-    }
-
-    private static @NotNull String repairEncoding(@NotNull String str, String srcEncoding, String dstEncoding) {
-        try {
-            return new String(str.getBytes(srcEncoding), dstEncoding);
-        } catch (UnsupportedEncodingException uee) {
-            MicrophoneTextInput.LOGGER.error("Couldn't repair encoding, using default", uee);
-            return str;
-        }
-    }
-
-    public static @NotNull String recognize(float[] audio) {
-        if (INSTANCE == null) return "";
-        WhisperFullParams params = McmtiConfig.wFullParams;
-        params.grammar = INSTANCE.grammar;
-        int flag = WHISPER.full(INSTANCE.ctx, params, audio, audio.length);
-        if (flag == 0 && WHISPER.fullNSegments(INSTANCE.ctx) > 0) {
-            StringBuilder result = new StringBuilder();
-            for (int i = 0; i < WHISPER.fullNSegments(INSTANCE.ctx); i++) {
-                result.append(WHISPER.fullGetSegmentText(INSTANCE.ctx, i));
-            }
-            if (McmtiConfig.encodingRepair) {
-                return repairEncoding(result.toString(), McmtiConfig.srcEncoding, McmtiConfig.dstEncoding);
-            } else {
-                return result.toString();
-            }
-        }
-        return "";
     }
 
     /**
@@ -105,23 +96,8 @@ public final class SpeechRecognizer {
             player.networkHandler.sendChatMessage(McmtiConfig.prefix + message.substring(0, maxLength));
             message = message.substring(maxLength);
         }
-        if (!message.isEmpty()) {            // send the rest
+        if (!message.isEmpty()) {
             player.networkHandler.sendChatMessage(McmtiConfig.prefix + message);
-        }
-    }
-
-    private SpeechRecognizer() throws IOException {
-        @NotNull WhisperContext whisperContext;
-        try (InputStream modelIn = new URI(McmtiConfig.model).toURL().openStream()) {
-            whisperContext = WHISPER.init(modelIn);
-        } catch (IllegalArgumentException | MalformedURLException | URISyntaxException e) {
-            whisperContext = WHISPER.init(Path.of(McmtiConfig.model));
-        }
-        this.ctx = whisperContext;
-        if (Path.of(McmtiConfig.grammar).toFile().isFile()) {
-            this.grammar = WHISPER.parseGrammar(Files.readString(Path.of(McmtiConfig.grammar)));
-        } else {
-            this.grammar = null;
         }
     }
 }

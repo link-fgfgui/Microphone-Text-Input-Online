@@ -33,8 +33,6 @@ repositories {
 }
 
 dependencies {
-    include forgeDependencies("io.github.jaffe2718:whisper-jni:$rootProject.whisper_jni_version")
-
     neoForge "net.neoforged:neoforge:$rootProject.neoforge_version"
     modImplementation "dev.architectury:architectury-neoforge:$rootProject.architectury_api_version"
 

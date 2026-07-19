@@ -62,11 +62,7 @@
     "custom": {
         "modmenu": {
             "links": {
-                "Modrinth": "https://modrinth.com/mod/mcmti",
-                "Jaffe2718/whisper-jni": "https://github.com/Jaffe2718/whisper-jni",
-                "VAD": "https://huggingface.co/ggml-org/whisper-vad",
-                "Official Whisper Model": "https://huggingface.co/ggerganov/whisper.cpp",
-                "Unofficial Whisper Model": "https://huggingface.co/Jaffe2718/ggml-whisper-unofficial"
+                "Modrinth": "https://modrinth.com/mod/mcmti"
             },
             "update_checker": true
         }

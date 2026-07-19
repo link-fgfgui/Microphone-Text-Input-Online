@@ -26,8 +26,8 @@ public interface EventSystem {
                 && MinecraftClient.getInstance().currentScreen == null) {
             if (AudioRecorder.instance() == null) {
                 player.sendMessage(Text.translatable("message.mcmti.audioInputDeviceLoadFailed"), true);
-            } else if (SpeechRecognizer.instance() == null) {
-                player.sendMessage(Text.translatable("message.mcmti.whisperModelLoadFailed"), true);
+            } else if (!SpeechRecognizer.isReady()) {
+                player.sendMessage(Text.translatable("message.mcmti.speechRecognizerNotReady"), true);
             } else if (McmtiConfig.mode != McmtiConfig.Mode.AUTO_SEND
                     && MicrophoneTextInput.RECOGNIZE_KEY.isPressed()) {
                 player.sendMessage(Text.translatable("message.mcmti.recordingAudio"), true);
@@ -46,10 +46,10 @@ public interface EventSystem {
                         MinecraftClient.getInstance().player instanceof ClientPlayerEntity player
                         && MinecraftClient.getInstance().currentScreen == null
                         && AudioRecorder.instance() != null
-                        && SpeechRecognizer.instance() != null) {
+                        && SpeechRecognizer.isReady()) {
                     switch (McmtiConfig.mode) {
                         case AUTO_SEND -> {
-                            float[] audio = AudioRecorder.recordCycle();
+                            byte[] audio = AudioRecorder.recordCycle();
                             Thread.ofVirtual().start(() -> {
                                 String result = SpeechRecognizer.recognize(audio);
                                 if (!result.isEmpty()) {
@@ -60,7 +60,7 @@ public interface EventSystem {
                         }
                         case RELEASE_KEY_TO_SEND -> {
                             if (MicrophoneTextInput.RECOGNIZE_KEY.isPressed()) {
-                                float[] audio = AudioRecorder.record();   // loop until key released
+                                byte[] audio = AudioRecorder.record();   // loop until key released
                                 vthread = Thread.ofVirtual().start(() -> {
                                     String result = SpeechRecognizer.recognize(audio);
                                     if (!result.isEmpty()) {
@@ -76,7 +76,7 @@ public interface EventSystem {
                         }
                         case RELEASE_KEY_TO_INPUT -> {
                             if (MicrophoneTextInput.RECOGNIZE_KEY.isPressed()) {
-                                float[] audio = AudioRecorder.record();
+                                byte[] audio = AudioRecorder.record();
                                 vthread = Thread.ofVirtual().start(() -> {
                                     String result = SpeechRecognizer.recognize(audio);
                                     if (!result.isEmpty()) {
