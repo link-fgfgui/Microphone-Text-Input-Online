@@ -16,8 +16,11 @@ import java.io.ByteArrayOutputStream;
 
 /**
  * Captures microphone audio and always returns little-endian 16-bit mono PCM at {@link #SAMPLE_RATE} Hz
- * for online speech recognition. Opens the capture line with a device-supported format when pure 16 kHz
- * is unavailable, then converts/resamples on the fly.
+ * for online speech recognition.
+ * <p>
+ * The capture line is <strong>not</strong> opened at game startup. The first {@link #record()} /
+ * {@link #recordCycle()} / {@link #ensureOpen()} call opens a device-supported format (falling back
+ * and resampling when pure 16 kHz is unavailable) and keeps it open until {@link #destroy()}.
  */
 public final class AudioRecorder {
     /** Output sample rate expected by ASR backends. */
@@ -33,6 +36,9 @@ public final class AudioRecorder {
     };
 
     private static volatile @Nullable AudioRecorder INSTANCE;
+    /** True after a failed open attempt until {@link #destroy()} / successful open. */
+    private static volatile boolean openFailed;
+    private static volatile boolean openInProgress;
 
     private final TargetDataLine line;
     private final AudioFormat captureFormat;
@@ -40,6 +46,8 @@ public final class AudioRecorder {
     public static void destroy() {
         AudioRecorder current = INSTANCE;
         INSTANCE = null;
+        openFailed = false;
+        openInProgress = false;
         if (current != null) {
             try {
                 current.line.stop();
@@ -51,27 +59,79 @@ public final class AudioRecorder {
         }
     }
 
+    /**
+     * Reset state without opening the microphone.
+     * Device open is deferred to the first recording request ({@link #ensureOpen()}).
+     */
     public static void init() {
         destroy();
-        try {
-            INSTANCE = openBestRecorder();
-            if (INSTANCE != null) {
-                MicrophoneTextInput.LOGGER.info(
-                        "Audio recorder ready: capture={} -> output {} Hz {}-bit mono",
-                        INSTANCE.captureFormat,
-                        SAMPLE_RATE,
-                        SAMPLE_SIZE_BITS
-                );
-            }
-        } catch (Throwable t) {
-            // Never crash the game from audio init (IllegalArgumentException is common here).
-            MicrophoneTextInput.LOGGER.error("Failed to initialize audio recorder", t);
-            INSTANCE = null;
-        }
+        MicrophoneTextInput.LOGGER.info(
+                "Audio recorder idle (microphone opens on first use, output {} Hz {}-bit mono)",
+                SAMPLE_RATE,
+                SAMPLE_SIZE_BITS
+        );
     }
 
     public static @Nullable AudioRecorder instance() {
         return INSTANCE;
+    }
+
+    /** Whether the capture line is currently open and cached. */
+    public static boolean isOpen() {
+        return INSTANCE != null;
+    }
+
+    /**
+     * Whether an open was attempted and failed. Cleared on {@link #destroy()} or successful open.
+     * Used for UI so we do not claim failure before the user ever tries to record.
+     */
+    public static boolean hasOpenFailed() {
+        return openFailed && INSTANCE == null;
+    }
+
+    /**
+     * Open the microphone on first use and keep it open until {@link #destroy()}.
+     * Thread-safe; concurrent callers share one open attempt.
+     *
+     * @return true if a recorder is available
+     */
+    public static boolean ensureOpen() {
+        if (INSTANCE != null) {
+            return true;
+        }
+        synchronized (AudioRecorder.class) {
+            if (INSTANCE != null) {
+                return true;
+            }
+            if (openInProgress) {
+                return false;
+            }
+            openInProgress = true;
+            try {
+                AudioRecorder opened = openBestRecorder();
+                if (opened != null) {
+                    INSTANCE = opened;
+                    openFailed = false;
+                    MicrophoneTextInput.LOGGER.info(
+                            "Audio recorder ready: capture={} -> output {} Hz {}-bit mono",
+                            opened.captureFormat,
+                            SAMPLE_RATE,
+                            SAMPLE_SIZE_BITS
+                    );
+                    return true;
+                }
+                openFailed = true;
+                MicrophoneTextInput.LOGGER.error("No usable microphone TargetDataLine found");
+                return false;
+            } catch (Throwable t) {
+                openFailed = true;
+                INSTANCE = null;
+                MicrophoneTextInput.LOGGER.error("Failed to open audio recorder", t);
+                return false;
+            } finally {
+                openInProgress = false;
+            }
+        }
     }
 
     private AudioRecorder(@NotNull TargetDataLine line, @NotNull AudioFormat captureFormat) {
@@ -81,10 +141,14 @@ public final class AudioRecorder {
 
     /**
      * Record a fixed-length cycle for {@link McmtiConfig.Mode#AUTO_SEND}.
+     * Opens the microphone on first call if needed.
      *
      * @return little-endian 16-bit mono PCM @ {@link #SAMPLE_RATE}, or empty if nothing was read
      */
     public static byte @NotNull [] recordCycle() {
+        if (!ensureOpen()) {
+            return new byte[0];
+        }
         AudioRecorder rec = INSTANCE;
         if (rec == null) {
             return new byte[0];
@@ -104,11 +168,15 @@ public final class AudioRecorder {
 
     /**
      * Record while the recognize key is held.
+     * Opens the microphone on first call if needed.
      *
      * @return little-endian 16-bit mono PCM @ {@link #SAMPLE_RATE}
      */
     public static byte @NotNull [] record() {
         assert McmtiConfig.mode != McmtiConfig.Mode.AUTO_SEND;
+        if (!ensureOpen()) {
+            return new byte[0];
+        }
         AudioRecorder rec = INSTANCE;
         if (rec == null) {
             return new byte[0];
@@ -180,8 +248,6 @@ public final class AudioRecorder {
         if (line != null) {
             return new AudioRecorder(line, line.getFormat());
         }
-
-        MicrophoneTextInput.LOGGER.error("No usable microphone TargetDataLine found");
         return null;
     }
 

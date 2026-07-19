@@ -36,6 +36,7 @@
     "mcmti.midnightconfig.title": "Configuration d'entrée de texte par microphone",
     "message.mcmti.audioInputDeviceLoadFailed": "§cÉchec du chargement du périphérique d'entrée audio",
     "message.mcmti.messageSent": "§aMessage envoyé",
+    "message.mcmti.openingMicrophone": "§eOuverture du microphone...",
     "message.mcmti.recognizing": "§eReconnaissance...",
     "message.mcmti.recordingAudio": "§eEnregistrement audio...",
     "message.mcmti.speechRecognizerNotReady": "§cReconnaissance non prête (vérifier URL / clé API)",

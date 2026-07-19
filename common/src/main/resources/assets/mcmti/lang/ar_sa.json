@@ -36,6 +36,7 @@
     "mcmti.midnightconfig.title": "إعدادات إدخال النص من الميكروفون",
     "message.mcmti.audioInputDeviceLoadFailed": "§cفشل تحميل جهاز إدخال الصوت",
     "message.mcmti.messageSent": "§aتم إرسال الرسالة",
+    "message.mcmti.openingMicrophone": "§eجاري فتح الميكروفون...",
     "message.mcmti.recognizing": "§eجاري التعرف...",
     "message.mcmti.recordingAudio": "§eجاري تسجيل الصوت...",
     "message.mcmti.speechRecognizerNotReady": "§cالتعرف غير جاهز (تحقق من عنوان API / المفتاح)",

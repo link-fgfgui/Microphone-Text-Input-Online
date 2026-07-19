@@ -36,6 +36,7 @@
     "mcmti.midnightconfig.title": "麦克风语音识别文本输入配置",
     "message.mcmti.audioInputDeviceLoadFailed": "§c音频输入设备加载失败",
     "message.mcmti.messageSent": "§a消息已发送",
+    "message.mcmti.openingMicrophone": "§e正在打开麦克风...",
     "message.mcmti.recognizing": "§e识别中...",
     "message.mcmti.recordingAudio": "§e音频录制中...",
     "message.mcmti.speechRecognizerNotReady": "§c语音识别未就绪（检查 API 地址 / Key）",

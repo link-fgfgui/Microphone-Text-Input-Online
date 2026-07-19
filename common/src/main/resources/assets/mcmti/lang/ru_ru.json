@@ -36,6 +36,7 @@
     "mcmti.midnightconfig.title": "Настройки ввода текста с микрофона",
     "message.mcmti.audioInputDeviceLoadFailed": "§cНе удалось загрузить устройство ввода звука",
     "message.mcmti.messageSent": "§aСообщение отправлено",
+    "message.mcmti.openingMicrophone": "§eОткрытие микрофона...",
     "message.mcmti.recognizing": "§eРаспознавание...",
     "message.mcmti.recordingAudio": "§eЗапись аудио...",
     "message.mcmti.speechRecognizerNotReady": "§cРаспознавание не готово (проверьте URL / ключ)",
