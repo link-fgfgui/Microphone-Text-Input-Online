@@ -24,16 +24,17 @@ public interface EventSystem {
     static void showRecognizeStatus(ClientWorld world) {
         if (MinecraftClient.getInstance().player instanceof ClientPlayerEntity player
                 && MinecraftClient.getInstance().currentScreen == null) {
-            // Do not complain about mic until the user has actually tried to record
             if (AudioRecorder.hasOpenFailed()) {
                 player.sendMessage(Text.translatable("message.mcmti.audioInputDeviceLoadFailed"), true);
             } else if (!SpeechRecognizer.isReady()) {
                 player.sendMessage(Text.translatable("message.mcmti.speechRecognizerNotReady"), true);
             } else if (McmtiConfig.mode != McmtiConfig.Mode.AUTO_SEND
                     && MicrophoneTextInput.RECOGNIZE_KEY.isPressed()) {
-                if (AudioRecorder.isOpen()) {
+                // "Recording" only when samples are actually being collected for ASR.
+                if (AudioRecorder.isRecordingSession()) {
                     player.sendMessage(Text.translatable("message.mcmti.recordingAudio"), true);
                 } else {
+                    // Key down but still opening mic / waiting for session ownership
                     player.sendMessage(Text.translatable("message.mcmti.openingMicrophone"), true);
                 }
             }
@@ -53,7 +54,6 @@ public interface EventSystem {
                         && SpeechRecognizer.isReady()) {
                     switch (McmtiConfig.mode) {
                         case AUTO_SEND -> {
-                            // Opens mic on first cycle (lazy); empty audio if open fails
                             byte[] audio = AudioRecorder.recordCycle();
                             if (audio.length == 0) {
                                 LockSupport.parkNanos(50_000_000L);
@@ -69,7 +69,7 @@ public interface EventSystem {
                         }
                         case RELEASE_KEY_TO_SEND -> {
                             if (MicrophoneTextInput.RECOGNIZE_KEY.isPressed()) {
-                                // ensureOpen runs inside record(); first press may take tens of ms
+                                // Blocks until key release; isRecordingSession() true only while collecting
                                 byte[] audio = AudioRecorder.record();
                                 vthread = Thread.ofVirtual().start(() -> {
                                     String result = SpeechRecognizer.recognize(audio);

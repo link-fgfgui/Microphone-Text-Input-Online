@@ -18,15 +18,25 @@ import java.io.ByteArrayOutputStream;
  * Captures microphone audio and always returns little-endian 16-bit mono PCM at {@link #SAMPLE_RATE} Hz
  * for online speech recognition.
  * <p>
- * The capture line is <strong>not</strong> opened at game startup. The first {@link #record()} /
- * {@link #recordCycle()} / {@link #ensureOpen()} call opens a device-supported format (falling back
- * and resampling when pure 16 kHz is unavailable) and keeps it open until {@link #destroy()}.
+ * Lifecycle:
+ * <ul>
+ *   <li>Game start: idle (no device open, no permission prompt)</li>
+ *   <li>First record: open device, start line, keep it warm</li>
+ *   <li>Idle while open: background drain discards ring-buffer samples (no {@code flush()} on each press)</li>
+ *   <li>Recording session: {@link #isRecordingSession()} is true only while samples are collected</li>
+ *   <li>Game stop: close device</li>
+ * </ul>
+ * Action-bar "Recording" must key off {@link #isRecordingSession()}, not key-down or line open.
  */
 public final class AudioRecorder {
     /** Output sample rate expected by ASR backends. */
     public static final int SAMPLE_RATE = 16000;
     public static final int SAMPLE_SIZE_BITS = 16;
     public static final int CHANNELS = 1;
+
+    private static final int READ_CHUNK_MS = 20;
+    /** After first open+start, discard this much audio so the first session is past device warmup. */
+    private static final int INITIAL_WARMUP_MS = 300;
 
     private static final AudioFormat PREFERRED_FORMAT =
             new AudioFormat(SAMPLE_RATE, SAMPLE_SIZE_BITS, CHANNELS, true, false);
@@ -36,32 +46,47 @@ public final class AudioRecorder {
     };
 
     private static volatile @Nullable AudioRecorder INSTANCE;
-    /** True after a failed open attempt until {@link #destroy()} / successful open. */
     private static volatile boolean openFailed;
     private static volatile boolean openInProgress;
+    /** True only while a record()/recordCycle() call is collecting samples for ASR. */
+    private static volatile boolean sessionActive;
 
     private final TargetDataLine line;
     private final AudioFormat captureFormat;
+    private final Object captureLock = new Object();
+    private final Thread drainThread;
+    private volatile boolean closed;
+    private volatile boolean drainPaused;
 
     public static void destroy() {
         AudioRecorder current = INSTANCE;
         INSTANCE = null;
         openFailed = false;
         openInProgress = false;
+        sessionActive = false;
         if (current != null) {
+            current.closed = true;
+            current.drainPaused = true;
+            current.drainThread.interrupt();
+            synchronized (current.captureLock) {
+                try {
+                    current.line.stop();
+                    current.line.flush();
+                    current.line.close();
+                } catch (Exception e) {
+                    MicrophoneTextInput.LOGGER.debug("Error closing audio line", e);
+                }
+            }
             try {
-                current.line.stop();
-                current.line.flush();
-                current.line.close();
-            } catch (Exception e) {
-                MicrophoneTextInput.LOGGER.debug("Error closing audio line", e);
+                current.drainThread.join(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         }
     }
 
     /**
      * Reset state without opening the microphone.
-     * Device open is deferred to the first recording request ({@link #ensureOpen()}).
      */
     public static void init() {
         destroy();
@@ -76,24 +101,24 @@ public final class AudioRecorder {
         return INSTANCE;
     }
 
-    /** Whether the capture line is currently open and cached. */
     public static boolean isOpen() {
         return INSTANCE != null;
     }
 
     /**
-     * Whether an open was attempted and failed. Cleared on {@link #destroy()} or successful open.
-     * Used for UI so we do not claim failure before the user ever tries to record.
+     * True only while this mod is collecting PCM for recognition.
+     * Use this for the action-bar "Recording" message — not key-down alone.
      */
+    public static boolean isRecordingSession() {
+        return sessionActive && INSTANCE != null;
+    }
+
     public static boolean hasOpenFailed() {
         return openFailed && INSTANCE == null;
     }
 
     /**
-     * Open the microphone on first use and keep it open until {@link #destroy()}.
-     * Thread-safe; concurrent callers share one open attempt.
-     *
-     * @return true if a recorder is available
+     * Open mic on first use, warm it up, keep it running until {@link #destroy()}.
      */
     public static boolean ensureOpen() {
         if (INSTANCE != null) {
@@ -110,10 +135,14 @@ public final class AudioRecorder {
             try {
                 AudioRecorder opened = openBestRecorder();
                 if (opened != null) {
+                    opened.line.start();
+                    // Discard device warmup so the first real session does not start on silence/garbage.
+                    opened.discardMs(INITIAL_WARMUP_MS);
+                    opened.startDrainThread();
                     INSTANCE = opened;
                     openFailed = false;
                     MicrophoneTextInput.LOGGER.info(
-                            "Audio recorder ready: capture={} -> output {} Hz {}-bit mono",
+                            "Audio recorder ready (warm): capture={} -> output {} Hz {}-bit mono",
                             opened.captureFormat,
                             SAMPLE_RATE,
                             SAMPLE_SIZE_BITS
@@ -137,13 +166,63 @@ public final class AudioRecorder {
     private AudioRecorder(@NotNull TargetDataLine line, @NotNull AudioFormat captureFormat) {
         this.line = line;
         this.captureFormat = captureFormat;
+        this.drainThread = new Thread(this::drainLoop, "thread.mcmti.audio.drain");
+        this.drainThread.setDaemon(true);
+    }
+
+    private void startDrainThread() {
+        drainThread.start();
+    }
+
+    /**
+     * Continuously discard samples while idle so the ring buffer never holds seconds of old audio.
+     * Paused during an active recording session so {@link #record()} owns the reads.
+     */
+    private void drainLoop() {
+        int frameSize = Math.max(1, captureFormat.getFrameSize());
+        byte[] junk = new byte[Math.max(frameSize * 64, bytesForDurationMs(captureFormat, READ_CHUNK_MS))];
+        while (!closed) {
+            try {
+                if (drainPaused || sessionActive) {
+                    LockSupportPark(5_000_000L);
+                    continue;
+                }
+                if (!line.isOpen()) {
+                    LockSupportPark(20_000_000L);
+                    continue;
+                }
+                if (!line.isActive()) {
+                    try {
+                        line.start();
+                    } catch (Exception e) {
+                        MicrophoneTextInput.LOGGER.debug("Failed to restart capture line", e);
+                        LockSupportPark(50_000_000L);
+                        continue;
+                    }
+                }
+                int available = line.available();
+                if (available >= frameSize) {
+                    int toRead = Math.min(junk.length, (available / frameSize) * frameSize);
+                    // Non-session reads: discard
+                    line.read(junk, 0, toRead);
+                } else {
+                    LockSupportPark(5_000_000L);
+                }
+            } catch (Exception e) {
+                if (!closed) {
+                    MicrophoneTextInput.LOGGER.debug("Audio drain loop error", e);
+                    LockSupportPark(50_000_000L);
+                }
+            }
+        }
+    }
+
+    private static void LockSupportPark(long nanos) {
+        java.util.concurrent.locks.LockSupport.parkNanos(nanos);
     }
 
     /**
      * Record a fixed-length cycle for {@link McmtiConfig.Mode#AUTO_SEND}.
-     * Opens the microphone on first call if needed.
-     *
-     * @return little-endian 16-bit mono PCM @ {@link #SAMPLE_RATE}, or empty if nothing was read
      */
     public static byte @NotNull [] recordCycle() {
         if (!ensureOpen()) {
@@ -153,24 +232,26 @@ public final class AudioRecorder {
         if (rec == null) {
             return new byte[0];
         }
-        int captureBytes = bytesForDurationMs(rec.captureFormat, McmtiConfig.recordCycleMs);
-        byte[] buf = new byte[captureBytes];
-        rec.line.start();
-        int read = rec.line.read(buf, 0, buf.length);
-        rec.line.stop();
-        rec.line.flush();
-        if (read <= 0) {
-            return new byte[0];
+        synchronized (rec.captureLock) {
+            rec.beginSession();
+            try {
+                int captureBytes = bytesForDurationMs(rec.captureFormat, McmtiConfig.recordCycleMs);
+                byte[] buf = new byte[captureBytes];
+                int read = rec.readFully(buf, 0, buf.length);
+                if (read <= 0) {
+                    return new byte[0];
+                }
+                byte[] exact = read == buf.length ? buf : copyOf(buf, read);
+                return rec.toOutputPcm(exact);
+            } finally {
+                rec.endSession();
+            }
         }
-        byte[] exact = read == buf.length ? buf : copyOf(buf, read);
-        return rec.toOutputPcm(exact);
     }
 
     /**
      * Record while the recognize key is held.
-     * Opens the microphone on first call if needed.
-     *
-     * @return little-endian 16-bit mono PCM @ {@link #SAMPLE_RATE}
+     * {@link #isRecordingSession()} is true for the entire sample-collection window.
      */
     public static byte @NotNull [] record() {
         assert McmtiConfig.mode != McmtiConfig.Mode.AUTO_SEND;
@@ -181,30 +262,105 @@ public final class AudioRecorder {
         if (rec == null) {
             return new byte[0];
         }
-        ByteArrayOutputStream dynamicBuffer = new ByteArrayOutputStream();
-        int chunkSize = Math.max(McmtiConfig.recordBufferSize, rec.line.getBufferSize() / 8);
-        chunkSize = Math.max(chunkSize, rec.captureFormat.getFrameSize() * 64);
-        // Align to frame size
-        int frameSize = Math.max(1, rec.captureFormat.getFrameSize());
-        chunkSize = (chunkSize / frameSize) * frameSize;
-        if (chunkSize <= 0) {
-            chunkSize = frameSize * 64;
-        }
-        byte[] chunk = new byte[chunkSize];
-        rec.line.start();
-        while (MicrophoneTextInput.RECOGNIZE_KEY.isPressed()) {
-            int read = rec.line.read(chunk, 0, chunk.length);
-            if (read > 0) {
-                dynamicBuffer.write(chunk, 0, read);
+        synchronized (rec.captureLock) {
+            rec.beginSession();
+            try {
+                ByteArrayOutputStream dynamicBuffer = new ByteArrayOutputStream();
+                int frameSize = Math.max(1, rec.captureFormat.getFrameSize());
+                int chunkSize = bytesForDurationMs(rec.captureFormat, READ_CHUNK_MS);
+                chunkSize = Math.max(frameSize, (chunkSize / frameSize) * frameSize);
+                byte[] chunk = new byte[chunkSize];
+
+                while (MicrophoneTextInput.RECOGNIZE_KEY.isPressed()) {
+                    int available = rec.line.available();
+                    int toRead;
+                    if (available >= frameSize) {
+                        toRead = Math.min(chunk.length, (available / frameSize) * frameSize);
+                    } else {
+                        // Block for up to one short chunk of new audio
+                        toRead = chunk.length;
+                    }
+                    int read = rec.line.read(chunk, 0, toRead);
+                    if (read > 0) {
+                        dynamicBuffer.write(chunk, 0, read);
+                    }
+                }
+
+                // Drain residual samples that arrived as the key was released.
+                int leftover = rec.line.available();
+                while (leftover >= frameSize) {
+                    int toRead = Math.min(chunk.length, (leftover / frameSize) * frameSize);
+                    int read = rec.line.read(chunk, 0, toRead);
+                    if (read <= 0) {
+                        break;
+                    }
+                    dynamicBuffer.write(chunk, 0, read);
+                    leftover = rec.line.available();
+                }
+
+                byte[] captured = dynamicBuffer.toByteArray();
+                if (captured.length == 0) {
+                    return new byte[0];
+                }
+                return rec.toOutputPcm(captured);
+            } finally {
+                rec.endSession();
             }
         }
-        rec.line.stop();
-        rec.line.flush();
-        byte[] captured = dynamicBuffer.toByteArray();
-        if (captured.length == 0) {
-            return new byte[0];
+    }
+
+    /**
+     * Mark UI session active and take ownership of the TargetDataLine from the drain thread.
+     * Does <strong>not</strong> flush — that would drop the first speech samples after key-down.
+     */
+    private void beginSession() {
+        drainPaused = true;
+        // Wait briefly for the drain thread to finish any in-flight read.
+        // Drain uses short reads; a few ms is enough.
+        try {
+            Thread.sleep(5);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
-        return rec.toOutputPcm(captured);
+        if (!line.isOpen()) {
+            throw new IllegalStateException("TargetDataLine is not open");
+        }
+        if (!line.isActive()) {
+            line.start();
+        }
+        // Publish session only after we own the line — action bar must not say Recording earlier.
+        sessionActive = true;
+    }
+
+    private void endSession() {
+        sessionActive = false;
+        drainPaused = false;
+    }
+
+    /** Blocking discard of approximately {@code ms} of capture audio (warmup). */
+    private void discardMs(int ms) {
+        int total = bytesForDurationMs(captureFormat, ms);
+        byte[] buf = new byte[Math.min(total, bytesForDurationMs(captureFormat, 50))];
+        int got = 0;
+        while (got < total) {
+            int n = line.read(buf, 0, Math.min(buf.length, total - got));
+            if (n <= 0) {
+                break;
+            }
+            got += n;
+        }
+    }
+
+    private int readFully(byte[] buf, int off, int len) {
+        int total = 0;
+        while (total < len) {
+            int read = line.read(buf, off + total, len - total);
+            if (read <= 0) {
+                break;
+            }
+            total += read;
+        }
+        return total;
     }
 
     private byte @NotNull [] toOutputPcm(byte @NotNull [] captureBytes) {
@@ -215,19 +371,16 @@ public final class AudioRecorder {
     }
 
     private static @Nullable AudioRecorder openBestRecorder() {
-        // 1) Preferred exact format on default mixer
         TargetDataLine line = tryOpen(PREFERRED_FORMAT);
         if (line != null) {
             return new AudioRecorder(line, line.getFormat());
         }
 
-        // 2) Preferred format on any mixer
         line = tryOpenOnAnyMixer(PREFERRED_FORMAT);
         if (line != null) {
             return new AudioRecorder(line, line.getFormat());
         }
 
-        // 3) Common rates / channel layouts, convert later
         for (float rate : CANDIDATE_RATES) {
             for (int channels : new int[]{1, 2}) {
                 for (boolean bigEndian : new boolean[]{false, true}) {
@@ -243,7 +396,6 @@ public final class AudioRecorder {
             }
         }
 
-        // 4) Last resort: any TargetDataLine with any supported format
         line = tryOpenAnySupportedLine();
         if (line != null) {
             return new AudioRecorder(line, line.getFormat());
@@ -326,7 +478,6 @@ public final class AudioRecorder {
                                 if (fmt.getSampleRate() == AudioSystem.NOT_SPECIFIED
                                         || fmt.getSampleSizeInBits() == AudioSystem.NOT_SPECIFIED
                                         || fmt.getChannels() == AudioSystem.NOT_SPECIFIED) {
-                                    // Fill in concrete values for open()
                                     float rate = fmt.getSampleRate() == AudioSystem.NOT_SPECIFIED ? 44100f : fmt.getSampleRate();
                                     int bits = fmt.getSampleSizeInBits() == AudioSystem.NOT_SPECIFIED ? 16 : fmt.getSampleSizeInBits();
                                     int ch = fmt.getChannels() == AudioSystem.NOT_SPECIFIED ? 1 : fmt.getChannels();
@@ -351,7 +502,6 @@ public final class AudioRecorder {
                                         );
                                         return line;
                                     } catch (Exception ignored) {
-                                        // try next format
                                     }
                                 } else {
                                     try {
@@ -363,13 +513,11 @@ public final class AudioRecorder {
                                         );
                                         return line;
                                     } catch (Exception ignored) {
-                                        // try next format
                                     }
                                 }
                             }
                         }
                     }
-                    // Try open with preferred-ish defaults
                     try {
                         AudioFormat fallback = new AudioFormat(44100f, 16, 1, true, false);
                         line.open(fallback);
@@ -383,7 +531,6 @@ public final class AudioRecorder {
                         try {
                             line.close();
                         } catch (Exception closeIgnored) {
-                            // ignore
                         }
                     }
                 } catch (Exception e) {
@@ -413,9 +560,6 @@ public final class AudioRecorder {
         return frames * frameSize;
     }
 
-    /**
-     * Convert arbitrary PCM capture bytes to little-endian 16-bit mono @ {@link #SAMPLE_RATE}.
-     */
     static byte @NotNull [] convertToPreferredPcm(byte @NotNull [] input, @NotNull AudioFormat format) {
         if (input.length == 0) {
             return input;
@@ -438,7 +582,6 @@ public final class AudioRecorder {
             return new byte[0];
         }
 
-        // Downmix + normalize to float mono [-1, 1]
         float[] mono = new float[frames];
         boolean bigEndian = format.isBigEndian();
         boolean signed = format.getEncoding() == AudioFormat.Encoding.PCM_SIGNED;
