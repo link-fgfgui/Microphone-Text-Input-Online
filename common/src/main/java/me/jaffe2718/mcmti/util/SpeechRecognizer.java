@@ -63,16 +63,44 @@ public final class SpeechRecognizer {
         }
     }
 
+    /** Max length of error detail shown on the action bar (full message is logged). */
+    private static final int ACTION_BAR_ERROR_MAX = 96;
+
+    /**
+     * Outcome of a recognition attempt.
+     *
+     * @param text         recognized text when successful (may be empty for no speech);
+     *                     {@code null} when {@link #failed()}
+     * @param errorDetail  short error for action bar when failed; {@code null} on success
+     */
+    public record RecognizeOutcome(@Nullable String text, @Nullable String errorDetail) {
+        public static @NotNull RecognizeOutcome success(@NotNull String text) {
+            return new RecognizeOutcome(text, null);
+        }
+
+        public static @NotNull RecognizeOutcome failure(@NotNull String detail) {
+            return new RecognizeOutcome(null, detail);
+        }
+
+        public boolean failed() {
+            return errorDetail != null;
+        }
+
+        public boolean hasText() {
+            return text != null && !text.isEmpty();
+        }
+    }
+
     /**
      * Transcribe PCM audio via the configured online speech recognition service.
      *
      * @param pcmAudio little-endian 16-bit mono PCM at {@link AudioRecorder#SAMPLE_RATE} Hz
-     * @return recognized text, or empty string on failure / no speech
+     * @return success with text (possibly empty), or failure with a short error detail for the action bar
      */
-    public static @NotNull String recognize(byte @NotNull [] pcmAudio) {
+    public static @NotNull RecognizeOutcome recognize(byte @NotNull [] pcmAudio) {
         SpeechAsrClient c = client;
         if (c == null || !c.isReady() || pcmAudio.length == 0) {
-            return "";
+            return RecognizeOutcome.success("");
         }
         try {
             AsrResult result = c.transcribe(new AsrRequest(
@@ -80,14 +108,41 @@ public final class SpeechRecognizer {
                     AudioRecorder.SAMPLE_RATE,
                     McmtiConfig.language
             ));
-            return result.text().trim();
+            return RecognizeOutcome.success(result.text().trim());
         } catch (AsrException e) {
             MicrophoneTextInput.LOGGER.error("Speech recognition failed: {}", e.getMessage());
-            return "";
+            return RecognizeOutcome.failure(formatActionBarError(e.getMessage()));
         } catch (Exception e) {
             MicrophoneTextInput.LOGGER.error("Unexpected speech recognition error", e);
-            return "";
+            String detail = e.getMessage() == null || e.getMessage().isBlank()
+                    ? e.getClass().getSimpleName()
+                    : e.getMessage();
+            return RecognizeOutcome.failure(formatActionBarError(detail));
         }
+    }
+
+    /**
+     * One-line error for the action bar: drop everything after the first {@code :}
+     * (e.g. HTTP response body), then hard-cap length.
+     * <p>
+     * {@code "OpenAI-compatible ASR HTTP 400: {...}"} → {@code "OpenAI-compatible ASR HTTP 400"}
+     */
+    static @NotNull String formatActionBarError(@Nullable String message) {
+        if (message == null || message.isBlank()) {
+            return "unknown error";
+        }
+        String oneLine = message.replace('\r', ' ').replace('\n', ' ').replaceAll(" +", " ").trim();
+        int colon = oneLine.indexOf(':');
+        if (colon >= 0) {
+            oneLine = oneLine.substring(0, colon).trim();
+        }
+        if (oneLine.isEmpty()) {
+            return "unknown error";
+        }
+        if (oneLine.length() <= ACTION_BAR_ERROR_MAX) {
+            return oneLine;
+        }
+        return oneLine.substring(0, ACTION_BAR_ERROR_MAX) + "...";
     }
 
     /**

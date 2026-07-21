@@ -131,19 +131,23 @@ public class McmtiConfig extends MidnightConfig {
 
     /**
      * Optional HTTP proxy for online ASR requests.
-     * Empty = direct. Examples: {@code 127.0.0.1:7890}, {@code http://127.0.0.1:7890},
-     * {@code http://user:pass@127.0.0.1:7890}.
+     * Empty = direct. {@code http://} is optional.
+     * Examples: {@code 127.0.0.1:7890}, {@code user:pass@127.0.0.1:7890}.
      */
     @Entry(category = "general", width = 128)
     public static String httpProxy = "";
 
     /**
-     * Prompt / context for OpenAI-compatible ASR (hotwords, domain terms).
-     * Sent as the multipart {@code prompt} field on {@code /audio/transcriptions}.
+     * OpenAI-compatible {@code /audio/transcriptions} multipart {@code prompt} field.
+     * <p>
+     * This is <strong>not</strong> a chat system prompt. Providers treat it as a short
+     * vocabulary / domain / continuation hint (proper nouns, topic, previous segment),
+     * not as instructions like "summarize" or "output markdown".
+     * Empty = omit the field.
      */
     @Entry(category = "general", width = 4096)
     @Condition(requiredOption = "asrProvider", requiredValue = "OPENAI_COMPATIBLE")
-    public static String systemPrompt = "You are a speech-to-text engine for Minecraft in-game chat. Transcribe the speaker's words only into one plain chat line ready to send. Prefer correct Minecraft terms when the sound matches: creeper, zombie, skeleton, enderman, nether, end, villager, diamond, netherite, redstone, elytra, totem, shulker, portal, raid, village, minecart, crafting table, enchanting table, respawn, PvP, AFK, TPS, FPS, lag, server, lobby, spawn, home, warp, tpa, tpahere, msg, whisper, team, party, guild. Keep original language (Chinese or English or mixed). Output a single line of plain text only: no markdown, no quotes, no labels, no brackets, no timestamps, no speaker tags, no translation unless spoken, no explanations, no filler such as um or uh. Prefer Arabic digits for numbers. If nothing intelligible was said, output nothing.";
+    public static String transcriptionPrompt = "Minecraft in-game chat. Expected vocabulary: creeper, zombie, skeleton, enderman, nether, end, villager, diamond, netherite, redstone, elytra, totem, shulker, portal, raid, village, minecart, crafting table, enchanting table, respawn, PvP, AFK, TPS, FPS, lag, server, lobby, spawn, home, warp, tpa, tpahere, msg, whisper, team, party, guild.";
 
     @Entry(category = "general")
     public static Mode mode = Mode.RELEASE_KEY_TO_SEND;
@@ -157,7 +161,7 @@ public class McmtiConfig extends MidnightConfig {
     public static int recordBufferSize = 1024;    // unit: byte, default: 1024 bytes
 
     @Entry(category = "general", width = 64)
-    public static String prefix = "🎤";
+    public static String prefix = "[🎙]";
 
     /**
      * Suggested defaults when switching to OpenAI-compatible (for docs / manual use).

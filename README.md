@@ -25,26 +25,45 @@ Supported backends:
 - Modes: `AUTO_SEND`, `RELEASE_KEY_TO_SEND`, `RELEASE_KEY_TO_INPUT`
 - Capture: mono 16-bit PCM @ 16 kHz → WAV upload
 - Pluggable `SpeechAsrClient` API
-- MiMo: `input_audio` + `asr_options.language`
-- OpenAI-compatible: multipart `audio/transcriptions` only
-- Optional hotword / prompt (OpenAI-compatible `prompt` field)
-- Optional HTTP proxy for online ASR (`host:port` or `http://user:pass@host:port`)
+- MiMo: Chat Completions with `input_audio` + `asr_options.language`
+- OpenAI-compatible: **only** multipart `POST /audio/transcriptions`
+- Optional transcription `prompt` (vocabulary / topic / prior-segment hint — **not** a chat system prompt)
+- Config-screen Load / Unload microphone controls
+- Default message prefix: `[🎙]`
 
 ## Architecture
 
 ```
-AudioRecorder (PCM 16kHz)
+AudioRecorder (PCM 16kHz mono)
         │
         ▼
 SpeechRecognizer
         │
         ▼
 SpeechAsrClient
-        ├── MimoAsrClient
-        └── OpenAiCompatibleAsrClient
+        ├── MimoAsrClient              → POST {base}/chat/completions
+        └── OpenAiCompatibleAsrClient  → POST {base}/audio/transcriptions
+                │
+                └── AsrHttpClients (timeout)
 ```
 
-## Configuration presets
+## Configuration reference
+
+| Field | Applies to | Notes |
+|-------|------------|--------|
+| `asrProvider` | all | `MIMO` \| `OPENAI_COMPATIBLE` |
+| `apiBaseUrl` | all | Base ending with `/v1` (trailing `/` OK) |
+| `apiKey` | all | Required for MiMo / most cloud; optional for local servers |
+| `model` | all | Provider model id |
+| `language` | all | MiMo: `auto` / `zh` / `en`. OpenAI-compatible: `auto` omits field |
+| `requestTimeoutMs` | all | HTTP connect/request timeout (ms) |
+| `transcriptionPrompt` | OpenAI only | Multipart `prompt` field. See [Transcription prompt](#transcription-prompt) |
+| `mode` | all | `AUTO_SEND` / `RELEASE_KEY_TO_SEND` / `RELEASE_KEY_TO_INPUT` |
+| `recordCycleMs` | `AUTO_SEND` | Record window length (ms) |
+| `recordBufferSize` | key-release modes | Capture buffer size (bytes) |
+| `prefix` | all | Prepended to chat text (default `[🎙]`) |
+
+Saving config re-inits the ASR client on a virtual thread.
 
 ### MiMo (default)
 
@@ -64,29 +83,76 @@ SpeechAsrClient
 | `apiBaseUrl` | `https://dashscope.aliyuncs.com/compatible-mode/v1` (北京) 或 `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` (新加坡) |
 | `apiKey` | DashScope key |
 | `model` | `qwen3-asr-flash` |
-| `systemPrompt` | 可选热词 / 领域说明 |
+| `transcriptionPrompt` | optional vocabulary / domain hint |
 
-### 本地 vLLM Qwen3-ASR
+### 本地 vLLM / OpenAI-compatible ASR
 
 | Field | Value |
 |-------|--------|
 | `asrProvider` | `OPENAI_COMPATIBLE` |
 | `apiBaseUrl` | `http://{IP}:{port}/v1` |
 | `apiKey` | 可留空 |
-| `model` | 本地模型路径或名称（如部署文档所示） |
+| `model` | 本地模型路径或名称 |
+| `transcriptionPrompt` | optional |
 
-## OpenAI-compatible request shape
+## Transcription prompt
 
-Always:
+Only used when `asrProvider = OPENAI_COMPATIBLE`. Sent as the multipart form field `prompt` on `/audio/transcriptions` when non-blank; omitted when empty.
+
+This is **not** a Chat Completions system message. Providers (e.g. OpenAI `gpt-4o-transcribe`, Qwen ASR) typically use it to:
+
+- supply domain vocabulary (proper nouns, brands, game terms)
+- hint the audio topic
+- continue context from a previous audio segment
+
+It is **not** intended for role/instructions such as:
+
+- ❌ “You are a secretary”
+- ❌ “Summarize instead of transcribing”
+- ❌ “Remove filler words”
+- ❌ “Output Markdown”
+
+Default value is a short Minecraft vocabulary / topic hint, for example:
+
+```text
+Minecraft in-game chat. Expected vocabulary: creeper, zombie, skeleton, ...
+```
+
+**MiMo ignores this field** entirely.
+
+## Request shapes
+
+### MiMo
+
+```http
+POST {apiBaseUrl}/chat/completions
+Authorization: Bearer {apiKey}
+api-key: {apiKey}
+Content-Type: application/json
+```
+
+Body uses multimodal `input_audio` (WAV data URL) and top-level `asr_options.language`.  
+Text from `choices[0].message.content`.
+
+### OpenAI-compatible (always transcriptions)
 
 ```http
 POST {apiBaseUrl}/audio/transcriptions
-Authorization: Bearer {apiKey}
+Authorization: Bearer {apiKey}   # if configured
 Content-Type: multipart/form-data
 ```
 
-字段：`file` (audio.wav)、`model`、`response_format=json`、可选 `language` / `prompt`。  
-文本取自 JSON 的 `text` 字段。
+| Part | Required | Notes |
+|------|----------|--------|
+| `file` | yes | `audio.wav` |
+| `model` | yes | |
+| `response_format` | yes | fixed `json` |
+| `language` | no | omitted when config is `auto` / blank |
+| `prompt` | no | from `transcriptionPrompt` when non-blank |
+
+Text from JSON `text` (or plain-text body if the server does not return JSON).
+
+There is **no** `chat/completions` / `audio_url` path for this provider anymore.
 
 ## Dependencies
 
@@ -99,15 +165,17 @@ Content-Type: multipart/form-data
 
 ## Usage
 
-1. 安装 mod，打开配置。
-2. 选择服务商并填写 base URL / key / model。
-3. 默认按键 `V` 录音识别。
+1. Install the mod and open config (Mod Menu / MidnightLib).
+2. Choose provider; set `apiBaseUrl` / `apiKey` / `model` (and prompt if needed).
+3. Optionally Load microphone from the config screen (also auto-opens on first record).
+4. Default key `V`: record → recognize → send or insert by mode.
 
 ## Troubleshooting
 
-- **Not Ready**：MiMo 需 API Key；OpenAI 兼容至少要有效 `apiBaseUrl`。
-- **网络错误**：确认游戏客户端能访问对应主机（本地部署注意防火墙 / 地址）。
-- **识别空结果**：看日志中的 HTTP 状态与响应摘要。
+- **Not Ready**: MiMo needs API key; OpenAI-compatible needs a non-empty `apiBaseUrl`.
+- **Network errors**: ensure the game client can reach the host (firewall, LAN address, proxy port is HTTP not SOCKS-only).
+- **Empty recognition**: check logs for HTTP status and response snippet; confirm the server implements `/audio/transcriptions` if using OpenAI-compatible.
+- **Prompt seems ignored**: expected for some backends; keep it short vocabulary/topic text, not system-style instructions. MiMo never sends it.
 
 ## License
 

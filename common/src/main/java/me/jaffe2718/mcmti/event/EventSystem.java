@@ -60,10 +60,13 @@ public interface EventSystem {
                                 break;
                             }
                             Thread.ofVirtual().start(() -> {
-                                String result = SpeechRecognizer.recognize(audio);
-                                if (!result.isEmpty()) {
+                                var outcome = SpeechRecognizer.recognize(audio);
+                                if (outcome.failed()) {
+                                    player.sendMessage(Text.translatable(
+                                            "message.mcmti.recognitionError", outcome.errorDetail()), true);
+                                } else if (outcome.hasText()) {
                                     player.sendMessage(Text.translatable("message.mcmti.messageSent"), true);
-                                    SpeechRecognizer.sendChatMessage(player, result);
+                                    SpeechRecognizer.sendChatMessage(player, outcome.text());
                                 }
                             });
                         }
@@ -72,11 +75,14 @@ public interface EventSystem {
                                 // Blocks until key release; isRecordingSession() true only while collecting
                                 byte[] audio = AudioRecorder.record();
                                 vthread = Thread.ofVirtual().start(() -> {
-                                    String result = SpeechRecognizer.recognize(audio);
-                                    if (!result.isEmpty()) {
+                                    var outcome = SpeechRecognizer.recognize(audio);
+                                    if (outcome.failed()) {
+                                        player.sendMessage(Text.translatable(
+                                                "message.mcmti.recognitionError", outcome.errorDetail()), true);
+                                    } else if (outcome.hasText()) {
                                         SCHEDULED_EXECUTOR_SERVICE.schedule(
                                                 () -> player.sendMessage(Text.translatable("message.mcmti.messageSent"), true), 100, TimeUnit.MILLISECONDS);
-                                        SpeechRecognizer.sendChatMessage(player, result);
+                                        SpeechRecognizer.sendChatMessage(player, outcome.text());
                                     }
                                 });
                             } else if (vthread != null && vthread.isAlive()) {
@@ -88,9 +94,14 @@ public interface EventSystem {
                             if (MicrophoneTextInput.RECOGNIZE_KEY.isPressed()) {
                                 byte[] audio = AudioRecorder.record();
                                 vthread = Thread.ofVirtual().start(() -> {
-                                    String result = SpeechRecognizer.recognize(audio);
-                                    if (!result.isEmpty()) {
-                                        MinecraftClient.getInstance().submit(() -> MinecraftClient.getInstance().setScreen(new ChatScreen(McmtiConfig.prefix + result))).join();
+                                    var outcome = SpeechRecognizer.recognize(audio);
+                                    if (outcome.failed()) {
+                                        player.sendMessage(Text.translatable(
+                                                "message.mcmti.recognitionError", outcome.errorDetail()), true);
+                                    } else if (outcome.hasText()) {
+                                        String text = outcome.text();
+                                        MinecraftClient.getInstance().submit(() ->
+                                                MinecraftClient.getInstance().setScreen(new ChatScreen(McmtiConfig.prefix + text))).join();
                                     }
                                 });
                             } else if (vthread != null && vthread.isAlive()) {

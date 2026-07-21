@@ -15,9 +15,10 @@ import java.time.Duration;
 /**
  * Builds {@link HttpClient} instances for online ASR, with optional HTTP proxy.
  * <p>
- * Proxy formats (empty = direct):
+ * Proxy formats (empty = direct). {@code http://} is optional:
  * <ul>
  *   <li>{@code host:port}</li>
+ *   <li>{@code user:pass@host:port}</li>
  *   <li>{@code http://host:port}</li>
  *   <li>{@code http://user:pass@host:port}</li>
  * </ul>
@@ -74,8 +75,13 @@ public final class AsrHttpClients {
         }
 
         try {
+            // Scheme is optional: host:port and user:pass@host:port are both accepted.
             if (raw.contains("://")) {
                 return parseUriProxy(raw);
+            }
+            if (raw.contains("@")) {
+                // user:pass@host:port  →  parse as URI with a default scheme
+                return parseUriProxy("http://" + raw);
             }
             return parseHostPort(raw, null, null);
         } catch (IllegalArgumentException e) {
@@ -90,7 +96,7 @@ public final class AsrHttpClients {
         String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase();
         if (!scheme.equals("http") && !scheme.equals("https")) {
             throw new IllegalArgumentException(
-                    "HTTP proxy must use http:// (or host:port), got scheme: " + uri.getScheme()
+                    "HTTP proxy must be host:port (http:// optional), got scheme: " + uri.getScheme()
             );
         }
         String host = uri.getHost();
@@ -136,7 +142,7 @@ public final class AsrHttpClients {
             int colon = raw.lastIndexOf(':');
             if (colon <= 0 || colon == raw.length() - 1) {
                 throw new IllegalArgumentException(
-                        "HTTP proxy must be host:port or http://host:port, got: " + raw
+                        "HTTP proxy must be host:port (http:// optional), got: " + raw
                 );
             }
             host = raw.substring(0, colon);

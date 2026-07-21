@@ -43,7 +43,8 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
     private final @NotNull String baseUrl;
     private final @NotNull String apiKey;
     private final @NotNull String model;
-    private final @NotNull String systemPrompt;
+    /** Multipart {@code prompt}: vocabulary / topic hint, not a chat system message. */
+    private final @NotNull String transcriptionPrompt;
     private final int timeoutMs;
     private final HttpClient httpClient;
 
@@ -51,24 +52,24 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
             @NotNull String baseUrl,
             @NotNull String apiKey,
             @NotNull String model,
-            @Nullable String systemPrompt,
+            @Nullable String transcriptionPrompt,
             int timeoutMs
     ) {
-        this(baseUrl, apiKey, model, systemPrompt, timeoutMs, null);
+        this(baseUrl, apiKey, model, transcriptionPrompt, timeoutMs, null);
     }
 
     public OpenAiCompatibleAsrClient(
             @NotNull String baseUrl,
             @NotNull String apiKey,
             @NotNull String model,
-            @Nullable String systemPrompt,
+            @Nullable String transcriptionPrompt,
             int timeoutMs,
             @Nullable String httpProxy
     ) {
         this.baseUrl = normalizeBaseUrl(baseUrl);
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = model.isBlank() ? DEFAULT_MODEL : model.trim();
-        this.systemPrompt = systemPrompt == null ? "" : systemPrompt.trim();
+        this.transcriptionPrompt = transcriptionPrompt == null ? "" : transcriptionPrompt.trim();
         this.timeoutMs = Math.max(1_000, timeoutMs);
         try {
             this.httpClient = AsrHttpClients.create(this.timeoutMs, httpProxy);
@@ -140,9 +141,10 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
             if (lang != null) {
                 writeFormField(out, boundary, "language", lang);
             }
-            if (!systemPrompt.isBlank()) {
-                // OpenAI transcriptions "prompt" is a short context / vocabulary hint
-                writeFormField(out, boundary, "prompt", systemPrompt);
+            if (!transcriptionPrompt.isBlank()) {
+                // OpenAI transcriptions "prompt": domain vocabulary / topic / prior segment —
+                // not chat system instructions (no "summarize", roleplay, output format, etc.)
+                writeFormField(out, boundary, "prompt", transcriptionPrompt);
             }
             out.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
             return out.toByteArray();

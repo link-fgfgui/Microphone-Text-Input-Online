@@ -24,7 +24,7 @@ public final class SpeechAsrClients {
                     McmtiConfig.apiBaseUrl,
                     McmtiConfig.apiKey,
                     McmtiConfig.model,
-                    McmtiConfig.systemPrompt,
+                    McmtiConfig.transcriptionPrompt,
                     McmtiConfig.requestTimeoutMs,
                     McmtiConfig.httpProxy
             );
