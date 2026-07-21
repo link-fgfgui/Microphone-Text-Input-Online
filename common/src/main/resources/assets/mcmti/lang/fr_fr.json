@@ -34,6 +34,8 @@
     "mcmti.midnightconfig.recordCycleMs.tooltip": "Cycle d'enregistrement en millisecondes.",
     "mcmti.midnightconfig.requestTimeoutMs": "Délai d'attente (ms)",
     "mcmti.midnightconfig.requestTimeoutMs.tooltip": "Délai d'attente HTTP.",
+    "mcmti.midnightconfig.httpProxy": "Proxy HTTP",
+    "mcmti.midnightconfig.httpProxy.tooltip": "Proxy HTTP optionnel pour l'ASR. Vide = connexion directe. Ex. : 127.0.0.1:7890 · http://user:pass@hôte:port",
     "mcmti.midnightconfig.systemPrompt": "Invite système / mots-clés",
     "mcmti.midnightconfig.systemPrompt.tooltip": "Contexte optionnel pour l'ASR compatible OpenAI.",
     "mcmti.midnightconfig.title": "Configuration d'entrée de texte par microphone",

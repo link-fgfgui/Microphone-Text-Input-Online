@@ -28,6 +28,7 @@ Supported backends:
 - MiMo: `input_audio` + `asr_options.language`
 - OpenAI-compatible: `chat/completions` (`audio_url`) or `audio/transcriptions` (multipart)
 - Optional system / hotword prompt (OpenAI-compatible)
+- Optional HTTP proxy for online ASR (`host:port` or `http://user:pass@host:port`)
 
 ## Architecture
 

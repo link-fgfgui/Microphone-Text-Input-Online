@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import me.jaffe2718.mcmti.asr.AsrException;
+import me.jaffe2718.mcmti.asr.AsrHttpClients;
 import me.jaffe2718.mcmti.asr.AsrRequest;
 import me.jaffe2718.mcmti.asr.AsrResult;
 import me.jaffe2718.mcmti.asr.SpeechAsrClient;
@@ -69,16 +70,29 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
             @Nullable String systemPrompt,
             int timeoutMs
     ) {
+        this(baseUrl, apiKey, model, apiStyle, systemPrompt, timeoutMs, null);
+    }
+
+    public OpenAiCompatibleAsrClient(
+            @NotNull String baseUrl,
+            @NotNull String apiKey,
+            @NotNull String model,
+            @NotNull ApiStyle apiStyle,
+            @Nullable String systemPrompt,
+            int timeoutMs,
+            @Nullable String httpProxy
+    ) {
         this.baseUrl = normalizeBaseUrl(baseUrl);
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = model.isBlank() ? DEFAULT_MODEL : model.trim();
         this.apiStyle = apiStyle == null ? ApiStyle.CHAT_COMPLETIONS : apiStyle;
         this.systemPrompt = systemPrompt == null ? "" : systemPrompt.trim();
         this.timeoutMs = Math.max(1_000, timeoutMs);
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(this.timeoutMs))
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
+        try {
+            this.httpClient = AsrHttpClients.create(this.timeoutMs, httpProxy);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid HTTP proxy for OpenAI-compatible ASR: " + e.getMessage(), e);
+        }
     }
 
     @Override

@@ -34,6 +34,8 @@
     "mcmti.midnightconfig.recordCycleMs.tooltip": "دورة التسجيل بالميلي ثانية.",
     "mcmti.midnightconfig.requestTimeoutMs": "مهلة الطلب (ms)",
     "mcmti.midnightconfig.requestTimeoutMs.tooltip": "مهلة HTTP.",
+    "mcmti.midnightconfig.httpProxy": "وكيل HTTP",
+    "mcmti.midnightconfig.httpProxy.tooltip": "وكيل HTTP اختياري لطلبات ASR. اتركه فارغًا للاتصال المباشر. مثال: 127.0.0.1:7890 · http://user:pass@host:port",
     "mcmti.midnightconfig.systemPrompt": "مطالبة النظام / الكلمات الساخنة",
     "mcmti.midnightconfig.systemPrompt.tooltip": "سياق اختياري لـ ASR المتوافق مع OpenAI.",
     "mcmti.midnightconfig.title": "إعدادات إدخال النص من الميكروفون",

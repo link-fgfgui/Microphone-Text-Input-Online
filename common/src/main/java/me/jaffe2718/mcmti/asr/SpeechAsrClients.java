@@ -17,7 +17,8 @@ public final class SpeechAsrClients {
                     McmtiConfig.apiBaseUrl,
                     McmtiConfig.apiKey,
                     McmtiConfig.model,
-                    McmtiConfig.requestTimeoutMs
+                    McmtiConfig.requestTimeoutMs,
+                    McmtiConfig.httpProxy
             );
             case OPENAI_COMPATIBLE -> new OpenAiCompatibleAsrClient(
                     McmtiConfig.apiBaseUrl,
@@ -25,7 +26,8 @@ public final class SpeechAsrClients {
                     McmtiConfig.model,
                     McmtiConfig.openaiApiStyle,
                     McmtiConfig.systemPrompt,
-                    McmtiConfig.requestTimeoutMs
+                    McmtiConfig.requestTimeoutMs,
+                    McmtiConfig.httpProxy
             );
         };
     }

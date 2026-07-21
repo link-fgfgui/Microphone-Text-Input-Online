@@ -34,6 +34,8 @@
     "mcmti.midnightconfig.recordCycleMs.tooltip": "自动发送模式时录音周期（毫秒）。",
     "mcmti.midnightconfig.requestTimeoutMs": "请求超时 (ms)",
     "mcmti.midnightconfig.requestTimeoutMs.tooltip": "在线语音识别 HTTP 超时时间。",
+    "mcmti.midnightconfig.httpProxy": "HTTP 代理",
+    "mcmti.midnightconfig.httpProxy.tooltip": "在线 ASR 请求的可选 HTTP 代理，留空则直连。示例：127.0.0.1:7890 · http://127.0.0.1:7890 · http://user:pass@主机:端口",
     "mcmti.midnightconfig.systemPrompt": "系统 / 热词提示",
     "mcmti.midnightconfig.systemPrompt.tooltip": "OpenAI 兼容 ASR 的可选上下文（热词、领域术语）。Chat 作 system；Transcriptions 作 prompt。",
     "mcmti.midnightconfig.title": "麦克风语音识别文本输入配置",

@@ -130,6 +130,14 @@ public class McmtiConfig extends MidnightConfig {
     public static int requestTimeoutMs = 60_000;
 
     /**
+     * Optional HTTP proxy for online ASR requests.
+     * Empty = direct. Examples: {@code 127.0.0.1:7890}, {@code http://127.0.0.1:7890},
+     * {@code http://user:pass@127.0.0.1:7890}.
+     */
+    @Entry(category = "general", width = 128)
+    public static String httpProxy = "";
+
+    /**
      * OpenAI-compatible endpoint style (ignored by MiMo).
      */
     @Entry(category = "general")

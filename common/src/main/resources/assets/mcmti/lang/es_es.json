@@ -34,6 +34,8 @@
     "mcmti.midnightconfig.recordCycleMs.tooltip": "Ciclo de grabación en milisegundos.",
     "mcmti.midnightconfig.requestTimeoutMs": "Tiempo de espera (ms)",
     "mcmti.midnightconfig.requestTimeoutMs.tooltip": "Tiempo de espera HTTP.",
+    "mcmti.midnightconfig.httpProxy": "Proxy HTTP",
+    "mcmti.midnightconfig.httpProxy.tooltip": "Proxy HTTP opcional para ASR. Vacío = conexión directa. Ej.: 127.0.0.1:7890 · http://user:pass@host:port",
     "mcmti.midnightconfig.systemPrompt": "Prompt de sistema / palabras clave",
     "mcmti.midnightconfig.systemPrompt.tooltip": "Contexto opcional para ASR compatible con OpenAI.",
     "mcmti.midnightconfig.title": "Configuración de entrada de texto por micrófono",

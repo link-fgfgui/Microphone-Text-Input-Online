@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import me.jaffe2718.mcmti.MicrophoneTextInput;
 import me.jaffe2718.mcmti.asr.AsrException;
+import me.jaffe2718.mcmti.asr.AsrHttpClients;
 import me.jaffe2718.mcmti.asr.AsrRequest;
 import me.jaffe2718.mcmti.asr.AsrResult;
 import me.jaffe2718.mcmti.asr.SpeechAsrClient;
@@ -51,14 +52,25 @@ public final class MimoAsrClient implements SpeechAsrClient {
             @NotNull String model,
             int timeoutMs
     ) {
+        this(baseUrl, apiKey, model, timeoutMs, null);
+    }
+
+    public MimoAsrClient(
+            @NotNull String baseUrl,
+            @NotNull String apiKey,
+            @NotNull String model,
+            int timeoutMs,
+            @Nullable String httpProxy
+    ) {
         this.baseUrl = normalizeBaseUrl(baseUrl);
         this.apiKey = apiKey.trim();
         this.model = model.isBlank() ? DEFAULT_MODEL : model.trim();
         this.timeoutMs = Math.max(1_000, timeoutMs);
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(this.timeoutMs))
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
+        try {
+            this.httpClient = AsrHttpClients.create(this.timeoutMs, httpProxy);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid HTTP proxy for MiMo ASR: " + e.getMessage(), e);
+        }
     }
 
     @Override

@@ -34,6 +34,8 @@
     "mcmti.midnightconfig.recordCycleMs.tooltip": "Цикл записи в миллисекундах.",
     "mcmti.midnightconfig.requestTimeoutMs": "Таймаут запроса (ms)",
     "mcmti.midnightconfig.requestTimeoutMs.tooltip": "HTTP-таймаут.",
+    "mcmti.midnightconfig.httpProxy": "HTTP-прокси",
+    "mcmti.midnightconfig.httpProxy.tooltip": "Необязательный HTTP-прокси для ASR. Пусто = прямое подключение. Пример: 127.0.0.1:7890 · http://user:pass@host:port",
     "mcmti.midnightconfig.systemPrompt": "Системный / hotword prompt",
     "mcmti.midnightconfig.systemPrompt.tooltip": "Опциональный контекст для OpenAI-совместимого ASR.",
     "mcmti.midnightconfig.title": "Настройки ввода текста с микрофона",

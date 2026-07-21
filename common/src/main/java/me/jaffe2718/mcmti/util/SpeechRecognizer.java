@@ -26,20 +26,28 @@ public final class SpeechRecognizer {
 
     public static synchronized void init() {
         destroy();
-        SpeechAsrClient created = SpeechAsrClients.createFromConfig();
-        client = created;
-        if (created.isReady()) {
-            MicrophoneTextInput.LOGGER.info(
-                    "Speech recognizer ready (provider={}, model={}, baseUrl={})",
-                    created.providerId(),
-                    McmtiConfig.model,
-                    McmtiConfig.apiBaseUrl
-            );
-        } else {
-            MicrophoneTextInput.LOGGER.warn(
-                    "Speech recognizer not ready: configure API base URL / key in mod config (provider={})",
-                    created.providerId()
-            );
+        try {
+            SpeechAsrClient created = SpeechAsrClients.createFromConfig();
+            client = created;
+            if (created.isReady()) {
+                MicrophoneTextInput.LOGGER.info(
+                        "Speech recognizer ready (provider={}, model={}, baseUrl={}, proxy={})",
+                        created.providerId(),
+                        McmtiConfig.model,
+                        McmtiConfig.apiBaseUrl,
+                        McmtiConfig.httpProxy == null || McmtiConfig.httpProxy.isBlank()
+                                ? "none"
+                                : "configured"
+                );
+            } else {
+                MicrophoneTextInput.LOGGER.warn(
+                        "Speech recognizer not ready: configure API base URL / key in mod config (provider={})",
+                        created.providerId()
+                );
+            }
+        } catch (IllegalArgumentException e) {
+            client = null;
+            MicrophoneTextInput.LOGGER.error("Failed to init speech recognizer: {}", e.getMessage());
         }
     }
 
