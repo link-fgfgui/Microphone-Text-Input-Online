@@ -1,9 +1,19 @@
 package me.jaffe2718.mcmti.config;
 
+import eu.midnightdust.lib.config.EntryInfo;
 import eu.midnightdust.lib.config.MidnightConfig;
+import eu.midnightdust.lib.config.MidnightConfigListWidget;
+import eu.midnightdust.lib.config.MidnightConfigScreen;
 import me.jaffe2718.mcmti.asr.mimo.MimoAsrClient;
 import me.jaffe2718.mcmti.asr.openai.OpenAiCompatibleAsrClient;
+import me.jaffe2718.mcmti.util.AudioRecorder;
 import me.jaffe2718.mcmti.util.SpeechRecognizer;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.text.Text;
+
+import java.util.List;
 
 public class McmtiConfig extends MidnightConfig {
 
@@ -30,6 +40,68 @@ public class McmtiConfig extends MidnightConfig {
     public void writeChanges() {
         super.writeChanges();
         Thread.ofVirtual().start(SpeechRecognizer::init);
+    }
+
+    /**
+     * Manual microphone open/close controls on the config screen.
+     * Mic still auto-opens on first record; these buttons are for permission / device recovery.
+     */
+    @Override
+    public void onTabInit(String tabName, MidnightConfigListWidget list, MidnightConfigScreen screen) {
+        if (!"general".equals(tabName)) {
+            return;
+        }
+
+        int x = Math.max(0, screen.width - 185);
+        int btnW = 72;
+        int gap = 6;
+
+        final ButtonWidget[] pair = new ButtonWidget[2];
+
+        pair[0] = ButtonWidget.builder(
+                Text.translatable("mcmti.midnightconfig.button.loadMicrophone"),
+                button -> {
+                    boolean ok = AudioRecorder.ensureOpen();
+                    notifyPlayer(ok
+                            ? Text.translatable("message.mcmti.microphoneLoaded")
+                            : Text.translatable("message.mcmti.audioInputDeviceLoadFailed"));
+                    refreshMicButtons(pair[0], pair[1]);
+                }
+        ).dimensions(x, 0, btnW, 20).build();
+
+        pair[1] = ButtonWidget.builder(
+                Text.translatable("mcmti.midnightconfig.button.unloadMicrophone"),
+                button -> {
+                    AudioRecorder.destroy();
+                    notifyPlayer(Text.translatable("message.mcmti.microphoneUnloaded"));
+                    refreshMicButtons(pair[0], pair[1]);
+                }
+        ).dimensions(x + btnW + gap, 0, btnW, 20).build();
+
+        refreshMicButtons(pair[0], pair[1]);
+
+        list.addButton(
+                List.of(pair[0], pair[1]),
+                Text.translatable("mcmti.midnightconfig.microphone"),
+                new EntryInfo(null, modid)
+        );
+    }
+
+    private static void refreshMicButtons(ButtonWidget loadBtn, ButtonWidget unloadBtn) {
+        boolean open = AudioRecorder.isOpen();
+        if (loadBtn != null) {
+            loadBtn.active = !open;
+        }
+        if (unloadBtn != null) {
+            unloadBtn.active = open;
+        }
+    }
+
+    private static void notifyPlayer(Text message) {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        if (player != null) {
+            player.sendMessage(message, true);
+        }
     }
 
     @Entry(category = "general")
