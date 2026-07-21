@@ -31,7 +31,7 @@ public class McmtiConfig extends MidnightConfig {
         MIMO,
         /**
          * OpenAI-compatible ASR (Qwen3-ASR / vLLM / DashScope, etc.).
-         * Uses {@code audio_url} chat completions or {@code /audio/transcriptions}.
+         * Uses multipart {@code /audio/transcriptions}.
          */
         OPENAI_COMPATIBLE,
     }
@@ -138,15 +138,8 @@ public class McmtiConfig extends MidnightConfig {
     public static String httpProxy = "";
 
     /**
-     * OpenAI-compatible endpoint style (ignored by MiMo).
-     */
-    @Entry(category = "general")
-    @Condition(requiredOption = "asrProvider", requiredValue = "OPENAI_COMPATIBLE")
-    public static OpenAiCompatibleAsrClient.ApiStyle openaiApiStyle = OpenAiCompatibleAsrClient.ApiStyle.CHAT_COMPLETIONS;
-
-    /**
-     * System / context prompt for OpenAI-compatible ASR (hotwords, domain terms).
-     * Chat completions: system message. Transcriptions: {@code prompt} field.
+     * Prompt / context for OpenAI-compatible ASR (hotwords, domain terms).
+     * Sent as the multipart {@code prompt} field on {@code /audio/transcriptions}.
      */
     @Entry(category = "general", width = 4096)
     @Condition(requiredOption = "asrProvider", requiredValue = "OPENAI_COMPATIBLE")
@@ -172,6 +165,5 @@ public class McmtiConfig extends MidnightConfig {
     public static void applyOpenAiCompatibleSuggestedDefaults() {
         apiBaseUrl = OpenAiCompatibleAsrClient.DEFAULT_BASE_URL;
         model = OpenAiCompatibleAsrClient.DEFAULT_MODEL;
-        openaiApiStyle = OpenAiCompatibleAsrClient.ApiStyle.CHAT_COMPLETIONS;
     }
 }

@@ -26,8 +26,8 @@ Supported backends:
 - Capture: mono 16-bit PCM @ 16 kHz → WAV upload
 - Pluggable `SpeechAsrClient` API
 - MiMo: `input_audio` + `asr_options.language`
-- OpenAI-compatible: `chat/completions` (`audio_url`) or `audio/transcriptions` (multipart)
-- Optional system / hotword prompt (OpenAI-compatible)
+- OpenAI-compatible: multipart `audio/transcriptions` only
+- Optional hotword / prompt (OpenAI-compatible `prompt` field)
 - Optional HTTP proxy for online ASR (`host:port` or `http://user:pass@host:port`)
 
 ## Architecture
@@ -64,7 +64,6 @@ SpeechAsrClient
 | `apiBaseUrl` | `https://dashscope.aliyuncs.com/compatible-mode/v1` (北京) 或 `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` (新加坡) |
 | `apiKey` | DashScope key |
 | `model` | `qwen3-asr-flash` |
-| `openaiApiStyle` | `CHAT_COMPLETIONS` (推荐) |
 | `systemPrompt` | 可选热词 / 领域说明 |
 
 ### 本地 vLLM Qwen3-ASR
@@ -75,41 +74,10 @@ SpeechAsrClient
 | `apiBaseUrl` | `http://{IP}:{port}/v1` |
 | `apiKey` | 可留空 |
 | `model` | 本地模型路径或名称（如部署文档所示） |
-| `openaiApiStyle` | `CHAT_COMPLETIONS` |
 
-## OpenAI-compatible request shapes
+## OpenAI-compatible request shape
 
-### CHAT_COMPLETIONS（Qwen 推荐）
-
-```http
-POST {apiBaseUrl}/chat/completions
-Authorization: Bearer {apiKey}   # 若配置了 key
-Content-Type: application/json
-```
-
-```json
-{
-  "model": "qwen3-asr-flash",
-  "messages": [
-    {
-      "role": "system",
-      "content": [{ "type": "text", "text": "…热词/上下文…" }]
-    },
-    {
-      "role": "user",
-      "content": [{
-        "type": "audio_url",
-        "audio_url": { "url": "data:audio/wav;base64,…" }
-      }]
-    }
-  ],
-  "stream": false
-}
-```
-
-文本取自 `choices[0].message.content`。
-
-### TRANSCRIPTIONS
+Always:
 
 ```http
 POST {apiBaseUrl}/audio/transcriptions

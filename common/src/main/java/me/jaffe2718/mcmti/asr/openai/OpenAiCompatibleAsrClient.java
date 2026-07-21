@@ -1,7 +1,5 @@
 package me.jaffe2718.mcmti.asr.openai;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import me.jaffe2718.mcmti.asr.AsrException;
@@ -28,12 +26,7 @@ import java.util.UUID;
 /**
  * OpenAI-compatible ASR client for Qwen3-ASR (vLLM / DashScope) and similar backends.
  * <p>
- * Supports two API styles:
- * <ul>
- *   <li>{@link ApiStyle#CHAT_COMPLETIONS} — {@code POST /chat/completions} with
- *       multimodal {@code audio_url} content (and optional system prompt / hotwords)</li>
- *   <li>{@link ApiStyle#TRANSCRIPTIONS} — {@code POST /audio/transcriptions} multipart form</li>
- * </ul>
+ * Always uses {@code POST /audio/transcriptions} (multipart form).
  *
  * <p>Typical endpoints:
  * <ul>
@@ -47,17 +40,9 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
     public static final String DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
     public static final String DEFAULT_MODEL = "qwen3-asr-flash";
 
-    public enum ApiStyle {
-        /** OpenAI-compatible chat completions with audio_url parts (Qwen ASR preferred). */
-        CHAT_COMPLETIONS,
-        /** Standard OpenAI audio transcriptions multipart endpoint. */
-        TRANSCRIPTIONS,
-    }
-
     private final @NotNull String baseUrl;
     private final @NotNull String apiKey;
     private final @NotNull String model;
-    private final @NotNull ApiStyle apiStyle;
     private final @NotNull String systemPrompt;
     private final int timeoutMs;
     private final HttpClient httpClient;
@@ -66,18 +51,16 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
             @NotNull String baseUrl,
             @NotNull String apiKey,
             @NotNull String model,
-            @NotNull ApiStyle apiStyle,
             @Nullable String systemPrompt,
             int timeoutMs
     ) {
-        this(baseUrl, apiKey, model, apiStyle, systemPrompt, timeoutMs, null);
+        this(baseUrl, apiKey, model, systemPrompt, timeoutMs, null);
     }
 
     public OpenAiCompatibleAsrClient(
             @NotNull String baseUrl,
             @NotNull String apiKey,
             @NotNull String model,
-            @NotNull ApiStyle apiStyle,
             @Nullable String systemPrompt,
             int timeoutMs,
             @Nullable String httpProxy
@@ -85,7 +68,6 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
         this.baseUrl = normalizeBaseUrl(baseUrl);
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = model.isBlank() ? DEFAULT_MODEL : model.trim();
-        this.apiStyle = apiStyle == null ? ApiStyle.CHAT_COMPLETIONS : apiStyle;
         this.systemPrompt = systemPrompt == null ? "" : systemPrompt.trim();
         this.timeoutMs = Math.max(1_000, timeoutMs);
         try {
@@ -124,24 +106,7 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
                 AudioRecorder.SAMPLE_SIZE_BITS
         );
 
-        return switch (apiStyle) {
-            case CHAT_COMPLETIONS -> transcribeViaChatCompletions(wav, request.language());
-            case TRANSCRIPTIONS -> transcribeViaTranscriptions(wav, request.language());
-        };
-    }
-
-    private @NotNull AsrResult transcribeViaChatCompletions(byte @NotNull [] wav, @Nullable String language)
-            throws AsrException {
-        int estimatedBase64 = WavAudio.estimateBase64Length(wav.length);
-        if (estimatedBase64 > WavAudio.MAX_BASE64_BYTES) {
-            throw new AsrException("Audio payload too large for chat/completions Base64 upload (estimated "
-                    + estimatedBase64 + " bytes)");
-        }
-
-        String dataUrl = WavAudio.toDataUrl(wav, WavAudio.MIME_WAV);
-        String body = buildChatCompletionsBody(dataUrl, language);
-        String responseBody = postJson(baseUrl + "/chat/completions", body);
-        return parseChatCompletionResponse(responseBody);
+        return transcribeViaTranscriptions(wav, request.language());
     }
 
     private @NotNull AsrResult transcribeViaTranscriptions(byte @NotNull [] wav, @Nullable String language)
@@ -159,61 +124,6 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
         HttpResponse<String> response = send(builder.build());
         ensure2xx(response);
         return parseTranscriptionResponse(response.body());
-    }
-
-    private @NotNull String buildChatCompletionsBody(@NotNull String dataUrl, @Nullable String language) {
-        JsonArray messages = new JsonArray();
-
-        String systemText = buildSystemText(language);
-        if (!systemText.isBlank()) {
-            JsonObject textPart = new JsonObject();
-            textPart.addProperty("type", "text");
-            textPart.addProperty("text", systemText);
-
-            JsonArray systemContent = new JsonArray();
-            systemContent.add(textPart);
-
-            JsonObject systemMessage = new JsonObject();
-            systemMessage.addProperty("role", "system");
-            systemMessage.add("content", systemContent);
-            messages.add(systemMessage);
-        }
-
-        JsonObject audioUrl = new JsonObject();
-        audioUrl.addProperty("url", dataUrl);
-
-        JsonObject audioPart = new JsonObject();
-        audioPart.addProperty("type", "audio_url");
-        audioPart.add("audio_url", audioUrl);
-
-        JsonArray userContent = new JsonArray();
-        userContent.add(audioPart);
-
-        JsonObject userMessage = new JsonObject();
-        userMessage.addProperty("role", "user");
-        userMessage.add("content", userContent);
-        messages.add(userMessage);
-
-        JsonObject root = new JsonObject();
-        root.addProperty("model", model);
-        root.add("messages", messages);
-        root.addProperty("stream", false);
-        return root.toString();
-    }
-
-    private @NotNull String buildSystemText(@Nullable String language) {
-        StringBuilder sb = new StringBuilder();
-        if (!systemPrompt.isBlank()) {
-            sb.append(systemPrompt.trim());
-        }
-        String lang = normalizeLanguageHint(language);
-        if (lang != null) {
-            if (!sb.isEmpty()) {
-                sb.append('\n');
-            }
-            sb.append("Language: ").append(lang).append('.');
-        }
-        return sb.toString();
     }
 
     private byte @NotNull [] buildTranscriptionsMultipart(
@@ -269,17 +179,6 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
         out.write("\r\n".getBytes(StandardCharsets.UTF_8));
     }
 
-    private @NotNull String postJson(@NotNull String url, @NotNull String body) throws AsrException {
-        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
-                .timeout(Duration.ofMillis(timeoutMs))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body));
-        applyAuth(builder);
-        HttpResponse<String> response = send(builder.build());
-        ensure2xx(response);
-        return response.body() == null ? "" : response.body();
-    }
-
     private void applyAuth(HttpRequest.@NotNull Builder builder) {
         if (!apiKey.isEmpty()) {
             builder.header("Authorization", "Bearer " + apiKey);
@@ -303,30 +202,6 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
                     "OpenAI-compatible ASR HTTP " + response.statusCode() + ": " + truncate(response.body(), 500),
                     response.statusCode()
             );
-        }
-    }
-
-    private static @NotNull AsrResult parseChatCompletionResponse(@Nullable String body) throws AsrException {
-        if (body == null || body.isBlank()) {
-            throw new AsrException("OpenAI-compatible ASR returned an empty response body");
-        }
-        try {
-            JsonObject root = JsonParser.parseString(body).getAsJsonObject();
-            throwIfErrorObject(root);
-            JsonArray choices = root.getAsJsonArray("choices");
-            if (choices == null || choices.isEmpty()) {
-                return AsrResult.EMPTY;
-            }
-            JsonObject message = choices.get(0).getAsJsonObject().getAsJsonObject("message");
-            if (message == null || !message.has("content")) {
-                return AsrResult.EMPTY;
-            }
-            String text = extractTextContent(message.get("content"));
-            return new AsrResult(text == null ? "" : text.trim(), null);
-        } catch (AsrException e) {
-            throw e;
-        } catch (RuntimeException e) {
-            throw new AsrException("Failed to parse chat/completions response: " + truncate(body, 300), e);
         }
     }
 
@@ -364,34 +239,8 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
         }
     }
 
-    private static @Nullable String extractTextContent(@Nullable JsonElement contentEl) {
-        if (contentEl == null || contentEl.isJsonNull()) {
-            return null;
-        }
-        if (contentEl.isJsonPrimitive()) {
-            return contentEl.getAsString();
-        }
-        if (contentEl.isJsonArray()) {
-            StringBuilder sb = new StringBuilder();
-            for (JsonElement part : contentEl.getAsJsonArray()) {
-                if (part.isJsonPrimitive()) {
-                    sb.append(part.getAsString());
-                } else if (part.isJsonObject()) {
-                    JsonObject obj = part.getAsJsonObject();
-                    if (obj.has("text")) {
-                        sb.append(obj.get("text").getAsString());
-                    } else if (obj.has("content")) {
-                        sb.append(obj.get("content").getAsString());
-                    }
-                }
-            }
-            return sb.toString();
-        }
-        return contentEl.toString();
-    }
-
     /**
-     * @return BCP-47-ish short code for transcriptions / system hint, or null to omit
+     * @return BCP-47-ish short code for transcriptions, or null to omit
      */
     static @Nullable String normalizeLanguageHint(@Nullable String language) {
         if (language == null || language.isBlank()) {

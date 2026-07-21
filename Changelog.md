@@ -1,8 +1,8 @@
 ## Changelog
 
 1. feature: OpenAI-compatible ASR provider (Qwen3-ASR / vLLM / DashScope)
-2. support: `chat/completions` with `audio_url` and multipart `audio/transcriptions`
-3. config: `openaiApiStyle`, `systemPrompt` (hotwords / domain context)
+2. support: multipart `audio/transcriptions` only
+3. config: `systemPrompt` (hotwords / domain context), optional `httpProxy`
 4. existing: Xiaomi MiMo-V2.5-ASR (`mimo-v2.5-asr`)
 
 ## Dependencies
