@@ -34,6 +34,13 @@ public class McmtiConfig extends MidnightConfig {
          * Uses multipart {@code /audio/transcriptions}.
          */
         OPENAI_COMPATIBLE,
+        /**
+         * Third-party plugin provider. Dispatches to a
+         * {@link me.jaffe2718.mcmti.asr.SpeechAsrClientPlugin} discovered via
+         * {@link java.util.ServiceLoader} whose {@code providerId()} matches
+         * {@link McmtiConfig#pluginProviderId}.
+         */
+        PLUGIN,
     }
 
     @Override
@@ -148,6 +155,19 @@ public class McmtiConfig extends MidnightConfig {
     @Entry(category = "general", width = 4096)
     @Condition(requiredOption = "asrProvider", requiredValue = "OPENAI_COMPATIBLE")
     public static String transcriptionPrompt = "Minecraft in-game chat. Expected vocabulary: creeper, zombie, skeleton, enderman, nether, end, villager, diamond, netherite, redstone, elytra, totem, shulker, portal, raid, village, minecart, crafting table, enchanting table, respawn, PvP, AFK, TPS, FPS, lag, server, lobby, spawn, home, warp, tpa, tpahere, msg, whisper, team, party, guild.";
+
+    /**
+     * Provider id of the {@link me.jaffe2718.mcmti.asr.SpeechAsrClientPlugin}
+     * to dispatch to when {@link #asrProvider} is
+     * {@link AsrProvider#PLUGIN}.
+     * <p>
+     * Must exactly match a plugin's
+     * {@link me.jaffe2718.mcmti.asr.SpeechAsrClientPlugin#providerId()}.
+     * Example: {@code dashscope} (from mcmti-dashscope-plugin).
+     */
+    @Entry(category = "general", width = 32)
+    @Condition(requiredOption = "asrProvider", requiredValue = "PLUGIN")
+    public static String pluginProviderId = "dashscope";
 
     @Entry(category = "general")
     public static Mode mode = Mode.RELEASE_KEY_TO_SEND;
