@@ -45,5 +45,11 @@
     "message.mcmti.recordingAudio": "§eЗапись аудио...",
     "message.mcmti.speechRecognizerNotReady": "§cРаспознавание не готово (проверьте URL / ключ)",
     "modmenu.descriptionTranslation.mcmti": "Инструмент ввода сообщений чата с распознаванием речи для Minecraft.",
-    "modmenu.nameTranslation.mcmti": "Ввод текста с помощью микрофона"
+    "modmenu.nameTranslation.mcmti": "Ввод текста с помощью микрофона",
+    "message.mcmti.mimoReady": "§aMiMo ASR ✓",
+    "message.mcmti.openAiReady": "§aOpenAI ASR ✓",
+    "message.mcmti.noRecognizerAvailable": "§cРаспознавание не готово (проверьте URL / ключ)",
+    "mcmti.midnightconfig.encodingRepair": "Encoding Repair",
+    "mcmti.midnightconfig.srcEncoding": "Source Encoding",
+    "mcmti.midnightconfig.dstEncoding": "Destination Encoding"
 }

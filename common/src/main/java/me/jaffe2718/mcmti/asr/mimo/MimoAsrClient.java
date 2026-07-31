@@ -9,7 +9,6 @@ import me.jaffe2718.mcmti.asr.AsrException;
 import me.jaffe2718.mcmti.asr.AsrHttpClients;
 import me.jaffe2718.mcmti.asr.AsrRequest;
 import me.jaffe2718.mcmti.asr.AsrResult;
-import me.jaffe2718.mcmti.asr.SpeechAsrClient;
 import me.jaffe2718.mcmti.asr.WavAudio;
 import me.jaffe2718.mcmti.util.AudioRecorder;
 import org.jetbrains.annotations.NotNull;
@@ -33,7 +32,7 @@ import java.util.Set;
  *
  * @see <a href="https://mimo.mi.com/docs/en-US/quick-start/usage-guide/audio/Speech-Recognition">MiMo Speech Recognition</a>
  */
-public final class MimoAsrClient implements SpeechAsrClient {
+public final class MimoAsrClient {
     public static final String PROVIDER_ID = "mimo";
     public static final String DEFAULT_BASE_URL = "https://api.xiaomimimo.com/v1";
     public static final String DEFAULT_MODEL = "mimo-v2.5-asr";
@@ -73,17 +72,14 @@ public final class MimoAsrClient implements SpeechAsrClient {
         }
     }
 
-    @Override
     public @NotNull String providerId() {
         return PROVIDER_ID;
     }
 
-    @Override
     public boolean isReady() {
         return !apiKey.isEmpty() && !baseUrl.isEmpty();
     }
 
-    @Override
     public @NotNull AsrResult transcribe(@NotNull AsrRequest request) throws AsrException {
         if (!isReady()) {
             throw new AsrException("MiMo ASR is not configured (missing API key or base URL)");

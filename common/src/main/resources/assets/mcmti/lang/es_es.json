@@ -45,5 +45,11 @@
     "message.mcmti.recordingAudio": "§eGrabando audio...",
     "message.mcmti.speechRecognizerNotReady": "§cReconocedor no listo (revise URL / clave API)",
     "modmenu.descriptionTranslation.mcmti": "Herramienta de entrada de mensajes de chat por reconocimiento de voz para Minecraft.",
-    "modmenu.nameTranslation.mcmti": "Entrada de texto por micrófono"
+    "modmenu.nameTranslation.mcmti": "Entrada de texto por micrófono",
+    "message.mcmti.mimoReady": "§aMiMo ASR ✓",
+    "message.mcmti.openAiReady": "§aOpenAI ASR ✓",
+    "message.mcmti.noRecognizerAvailable": "§cReconocedor no listo (revise URL / clave API)",
+    "mcmti.midnightconfig.encodingRepair": "Encoding Repair",
+    "mcmti.midnightconfig.srcEncoding": "Source Encoding",
+    "mcmti.midnightconfig.dstEncoding": "Destination Encoding"
 }

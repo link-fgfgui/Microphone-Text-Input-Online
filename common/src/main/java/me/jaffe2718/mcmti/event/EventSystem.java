@@ -9,6 +9,7 @@ import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.text.Text;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.concurrent.Executors;
@@ -26,21 +27,18 @@ public interface EventSystem {
                 && MinecraftClient.getInstance().currentScreen == null) {
             if (AudioRecorder.hasOpenFailed()) {
                 player.sendMessage(Text.translatable("message.mcmti.audioInputDeviceLoadFailed"), true);
-            } else if (!SpeechRecognizer.isReady()) {
-                player.sendMessage(Text.translatable("message.mcmti.speechRecognizerNotReady"), true);
+            } else if (!SpeechRecognizer.instanceAvailable()) {
+                player.sendMessage(SpeechRecognizer.instanceUnavailableToast(), true);
             } else if (McmtiConfig.mode != McmtiConfig.Mode.AUTO_SEND
                     && MicrophoneTextInput.RECOGNIZE_KEY.isPressed()) {
-                // "Recording" only when samples are actually being collected for ASR.
                 if (AudioRecorder.isRecordingSession()) {
                     player.sendMessage(Text.translatable("message.mcmti.recordingAudio"), true);
                 } else {
-                    // Key down but still opening mic / waiting for session ownership
                     player.sendMessage(Text.translatable("message.mcmti.openingMicrophone"), true);
                 }
             }
         }
     }
-
 
     @SuppressWarnings("InfiniteLoopStatement")
     static void recognizeTask() {
@@ -51,38 +49,37 @@ public interface EventSystem {
                 if (MinecraftClient.getInstance() != null &&
                         MinecraftClient.getInstance().player instanceof ClientPlayerEntity player
                         && MinecraftClient.getInstance().currentScreen == null
-                        && SpeechRecognizer.isReady()) {
+                        && SpeechRecognizer.instanceAvailable()) {
                     switch (McmtiConfig.mode) {
                         case AUTO_SEND -> {
-                            byte[] audio = AudioRecorder.recordCycle();
+                            float[] audio = AudioRecorder.recordCycle();
                             if (audio.length == 0) {
                                 LockSupport.parkNanos(50_000_000L);
                                 break;
                             }
                             Thread.ofVirtual().start(() -> {
-                                var outcome = SpeechRecognizer.recognize(audio);
+                                var outcome = SpeechRecognizer.recognizeOutcome(audio);
                                 if (outcome.failed()) {
                                     player.sendMessage(Text.translatable(
                                             "message.mcmti.recognitionError", outcome.errorDetail()), true);
                                 } else if (outcome.hasText()) {
                                     player.sendMessage(Text.translatable("message.mcmti.messageSent"), true);
-                                    SpeechRecognizer.sendChatMessage(player, outcome.text());
+                                    sendChatMessage(player, outcome.text());
                                 }
                             });
                         }
                         case RELEASE_KEY_TO_SEND -> {
                             if (MicrophoneTextInput.RECOGNIZE_KEY.isPressed()) {
-                                // Blocks until key release; isRecordingSession() true only while collecting
-                                byte[] audio = AudioRecorder.record();
+                                float[] audio = AudioRecorder.record();
                                 vthread = Thread.ofVirtual().start(() -> {
-                                    var outcome = SpeechRecognizer.recognize(audio);
+                                    var outcome = SpeechRecognizer.recognizeOutcome(audio);
                                     if (outcome.failed()) {
                                         player.sendMessage(Text.translatable(
                                                 "message.mcmti.recognitionError", outcome.errorDetail()), true);
                                     } else if (outcome.hasText()) {
                                         SCHEDULED_EXECUTOR_SERVICE.schedule(
                                                 () -> player.sendMessage(Text.translatable("message.mcmti.messageSent"), true), 100, TimeUnit.MILLISECONDS);
-                                        SpeechRecognizer.sendChatMessage(player, outcome.text());
+                                        sendChatMessage(player, outcome.text());
                                     }
                                 });
                             } else if (vthread != null && vthread.isAlive()) {
@@ -92,9 +89,9 @@ public interface EventSystem {
                         }
                         case RELEASE_KEY_TO_INPUT -> {
                             if (MicrophoneTextInput.RECOGNIZE_KEY.isPressed()) {
-                                byte[] audio = AudioRecorder.record();
+                                float[] audio = AudioRecorder.record();
                                 vthread = Thread.ofVirtual().start(() -> {
-                                    var outcome = SpeechRecognizer.recognize(audio);
+                                    var outcome = SpeechRecognizer.recognizeOutcome(audio);
                                     if (outcome.failed()) {
                                         player.sendMessage(Text.translatable(
                                                 "message.mcmti.recognitionError", outcome.errorDetail()), true);
@@ -116,6 +113,17 @@ public interface EventSystem {
             } catch (Throwable t) {
                 MicrophoneTextInput.LOGGER.error("Error in recognize task", t);
             }
+        }
+    }
+
+    static void sendChatMessage(@NotNull ClientPlayerEntity player, @NotNull String message) {
+        final int maxLength = 256 - McmtiConfig.prefix.length();
+        while (message.length() > maxLength) {
+            player.networkHandler.sendChatMessage(McmtiConfig.prefix + message.substring(0, maxLength));
+            message = message.substring(maxLength);
+        }
+        if (!message.isEmpty()) {
+            player.networkHandler.sendChatMessage(McmtiConfig.prefix + message);
         }
     }
 }

@@ -60,4 +60,20 @@ public final class WavAudio {
     public static int estimateBase64Length(int rawLength) {
         return ((rawLength + 2) / 3) * 4;
     }
+
+    /**
+     * Convert normalized float samples ([-1.0, 1.0]) to little-endian 16-bit signed PCM.
+     */
+    public static byte @NotNull [] floatToPcm16(float @NotNull [] samples) {
+        byte[] out = new byte[samples.length * 2];
+        for (int i = 0; i < samples.length; i++) {
+            float v = Math.max(-1f, Math.min(1f, samples[i]));
+            int s = Math.round(v * 32767f);
+            if (s > 32767) s = 32767;
+            if (s < -32768) s = -32768;
+            out[i * 2] = (byte) (s & 0xFF);
+            out[i * 2 + 1] = (byte) ((s >> 8) & 0xFF);
+        }
+        return out;
+    }
 }

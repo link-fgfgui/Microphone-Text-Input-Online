@@ -224,13 +224,13 @@ public final class AudioRecorder {
     /**
      * Record a fixed-length cycle for {@link McmtiConfig.Mode#AUTO_SEND}.
      */
-    public static byte @NotNull [] recordCycle() {
+    public static float @NotNull [] recordCycle() {
         if (!ensureOpen()) {
-            return new byte[0];
+            return new float[0];
         }
         AudioRecorder rec = INSTANCE;
         if (rec == null) {
-            return new byte[0];
+            return new float[0];
         }
         synchronized (rec.captureLock) {
             rec.beginSession();
@@ -239,10 +239,10 @@ public final class AudioRecorder {
                 byte[] buf = new byte[captureBytes];
                 int read = rec.readFully(buf, 0, buf.length);
                 if (read <= 0) {
-                    return new byte[0];
+                    return new float[0];
                 }
                 byte[] exact = read == buf.length ? buf : copyOf(buf, read);
-                return rec.toOutputPcm(exact);
+                return rec.toOutputFloat(exact);
             } finally {
                 rec.endSession();
             }
@@ -253,14 +253,14 @@ public final class AudioRecorder {
      * Record while the recognize key is held.
      * {@link #isRecordingSession()} is true for the entire sample-collection window.
      */
-    public static byte @NotNull [] record() {
+    public static float @NotNull [] record() {
         assert McmtiConfig.mode != McmtiConfig.Mode.AUTO_SEND;
         if (!ensureOpen()) {
-            return new byte[0];
+            return new float[0];
         }
         AudioRecorder rec = INSTANCE;
         if (rec == null) {
-            return new byte[0];
+            return new float[0];
         }
         synchronized (rec.captureLock) {
             rec.beginSession();
@@ -300,9 +300,9 @@ public final class AudioRecorder {
 
                 byte[] captured = dynamicBuffer.toByteArray();
                 if (captured.length == 0) {
-                    return new byte[0];
+                    return new float[0];
                 }
-                return rec.toOutputPcm(captured);
+                return rec.toOutputFloat(captured);
             } finally {
                 rec.endSession();
             }
@@ -363,11 +363,22 @@ public final class AudioRecorder {
         return total;
     }
 
-    private byte @NotNull [] toOutputPcm(byte @NotNull [] captureBytes) {
+    private float @NotNull [] toOutputFloat(byte @NotNull [] captureBytes) {
         if (isPreferredFormat(captureFormat)) {
-            return captureBytes;
+            return pcm16ToFloat(captureBytes);
         }
-        return convertToPreferredPcm(captureBytes, captureFormat);
+        return convertToFloatMono(captureBytes, captureFormat);
+    }
+
+    private static float @NotNull [] pcm16ToFloat(byte @NotNull [] data) {
+        float[] result = new float[data.length / 2];
+        for (int i = 0; i < result.length; i++) {
+            int lo = data[i * 2] & 0xFF;
+            int hi = data[i * 2 + 1];
+            short sample = (short) ((hi << 8) | lo);
+            result[i] = Math.max(-1f, Math.min(sample / 32767f, 1f));
+        }
+        return result;
     }
 
     private static @Nullable AudioRecorder openBestRecorder() {
@@ -560,14 +571,14 @@ public final class AudioRecorder {
         return frames * frameSize;
     }
 
-    static byte @NotNull [] convertToPreferredPcm(byte @NotNull [] input, @NotNull AudioFormat format) {
+    static float @NotNull [] convertToFloatMono(byte @NotNull [] input, @NotNull AudioFormat format) {
         if (input.length == 0) {
-            return input;
+            return new float[0];
         }
         if (format.getEncoding() != AudioFormat.Encoding.PCM_SIGNED
                 && format.getEncoding() != AudioFormat.Encoding.PCM_UNSIGNED) {
             MicrophoneTextInput.LOGGER.warn("Unsupported capture encoding {}, returning empty audio", format.getEncoding());
-            return new byte[0];
+            return new float[0];
         }
 
         int srcChannels = Math.max(1, format.getChannels());
@@ -579,7 +590,7 @@ public final class AudioRecorder {
         int srcFrameSize = format.getFrameSize() > 0 ? format.getFrameSize() : srcBytesPerSample * srcChannels;
         int frames = input.length / srcFrameSize;
         if (frames <= 0) {
-            return new byte[0];
+            return new float[0];
         }
 
         float[] mono = new float[frames];
@@ -600,18 +611,7 @@ public final class AudioRecorder {
         }
 
         float srcRate = format.getSampleRate() > 0 ? format.getSampleRate() : SAMPLE_RATE;
-        float[] resampled = resampleLinear(mono, srcRate, SAMPLE_RATE);
-
-        byte[] out = new byte[resampled.length * 2];
-        for (int i = 0; i < resampled.length; i++) {
-            float v = Math.max(-1f, Math.min(1f, resampled[i]));
-            int s = Math.round(v * 32767f);
-            if (s > 32767) s = 32767;
-            if (s < -32768) s = -32768;
-            out[i * 2] = (byte) (s & 0xFF);
-            out[i * 2 + 1] = (byte) ((s >> 8) & 0xFF);
-        }
-        return out;
+        return resampleLinear(mono, srcRate, SAMPLE_RATE);
     }
 
     private static int readSample(byte[] data, int offset, int bytesPerSample, boolean bigEndian, boolean signed) {

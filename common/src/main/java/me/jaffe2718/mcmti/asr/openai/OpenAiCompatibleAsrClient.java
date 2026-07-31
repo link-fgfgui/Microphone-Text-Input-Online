@@ -6,7 +6,6 @@ import me.jaffe2718.mcmti.asr.AsrException;
 import me.jaffe2718.mcmti.asr.AsrHttpClients;
 import me.jaffe2718.mcmti.asr.AsrRequest;
 import me.jaffe2718.mcmti.asr.AsrResult;
-import me.jaffe2718.mcmti.asr.SpeechAsrClient;
 import me.jaffe2718.mcmti.asr.WavAudio;
 import me.jaffe2718.mcmti.util.AudioRecorder;
 import org.jetbrains.annotations.NotNull;
@@ -35,7 +34,7 @@ import java.util.UUID;
  *   <li>DashScope Singapore: {@code https://dashscope-intl.aliyuncs.com/compatible-mode/v1}</li>
  * </ul>
  */
-public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
+public final class OpenAiCompatibleAsrClient {
     public static final String PROVIDER_ID = "openai_compatible";
     public static final String DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
     public static final String DEFAULT_MODEL = "qwen3-asr-flash";
@@ -78,7 +77,6 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
         }
     }
 
-    @Override
     public @NotNull String providerId() {
         return PROVIDER_ID;
     }
@@ -86,12 +84,10 @@ public final class OpenAiCompatibleAsrClient implements SpeechAsrClient {
     /**
      * Local vLLM often has no API key; only base URL is required.
      */
-    @Override
     public boolean isReady() {
         return !baseUrl.isEmpty();
     }
 
-    @Override
     public @NotNull AsrResult transcribe(@NotNull AsrRequest request) throws AsrException {
         if (!isReady()) {
             throw new AsrException("OpenAI-compatible ASR is not configured (missing API base URL)");

@@ -3,10 +3,6 @@ plugins {
     id 'dev.architectury.loom' version '1.13-SNAPSHOT' apply false
     id 'architectury-plugin' version '3.4-SNAPSHOT'
     id 'com.gradleup.shadow' version '8.3.6' apply false
-    // Root project publishes a pure-Java SPI jar (no minecraft/loom dependency)
-    // so third-party plugin mods can compile against it via jitpack.
-    id 'java-library'
-    id 'maven-publish'
 }
 
 architectury {
@@ -36,60 +32,6 @@ ext.getPublishVersionType = {
     } else {
         return 'release'
     }
-}
-
-// ---------------------------------------------------------------------------
-// SPI sourceSet: pure-Java ASR interfaces consumed by third-party plugin mods.
-//
-// These 6 files live in common/src/main/java but have NO minecraft dependency,
-// so the root project compiles and publishes them WITHOUT loom. This keeps the
-// artifact buildable on jitpack (loom would otherwise need MC mappings).
-//
-// Plugin mods compile against this root jar (compileOnly) but, at runtime, the
-// same classes are loaded from the mcmti mod jar (common subproject compiles
-// them from the same source). Plugin mods must NOT bundle these classes.
-// ---------------------------------------------------------------------------
-sourceSets {
-    main {
-        java {
-            // Default src/main/java is empty; add only the SPI files.
-            srcDir 'common/src/main/java'
-            include 'me/jaffe2718/mcmti/asr/SpeechAsrClient.java'
-            include 'me/jaffe2718/mcmti/asr/SpeechAsrClientPlugin.java'
-            include 'me/jaffe2718/mcmti/asr/AsrConfig.java'
-            include 'me/jaffe2718/mcmti/asr/AsrRequest.java'
-            include 'me/jaffe2718/mcmti/asr/AsrResult.java'
-            include 'me/jaffe2718/mcmti/asr/AsrException.java'
-        }
-    }
-}
-
-// Root jar includes ONLY the SPI classes — not the full mod (that lives in
-// fabric/neoforge subprojects). The base archivesName from gradle.properties
-// ('microphone-text-input-online') becomes the artifactId; jitpack overrides
-// group/version via -Pgroup / -Pversion.
-base {
-    archivesName = rootProject.archives_name
-}
-
-// Publish the SPI artifact so jitpack can serve it under
-// com.github.<user>:<repo>:<version>
-publishing {
-    publications {
-        create('mavenJava', MavenPublication) {
-            from components.java
-            // artifactId defaults to project name (= GitHub repo name on
-            // jitpack). Do NOT override it — jitpack serves artifacts under
-            // the GitHub repo name, regardless of archivesName.
-        }
-    }
-}
-
-// Root project needs the annotations dependency for the SPI sourceSet
-// (subprojects declare it themselves, but the root project's main sourceSet
-// does not inherit from them).
-dependencies {
-    compileOnly 'org.jetbrains:annotations:26.0.2'
 }
 
 repositories {
@@ -136,5 +78,11 @@ subprojects {
 
     tasks.withType(JavaCompile).configureEach {
         it.options.release = 21
+    }
+}
+
+project(':common') {
+    tasks.named('test') {
+        useJUnitPlatform()
     }
 }

@@ -24,7 +24,7 @@ Supported backends:
 
 - Modes: `AUTO_SEND`, `RELEASE_KEY_TO_SEND`, `RELEASE_KEY_TO_INPUT`
 - Capture: mono 16-bit PCM @ 16 kHz → WAV upload
-- Pluggable `SpeechAsrClient` API
+- Pluggable `SpeechRecognizer` API for local or online ASR extensions
 - MiMo: Chat Completions with `input_audio` + `asr_options.language`
 - OpenAI-compatible: **only** multipart `POST /audio/transcriptions`
 - Optional transcription `prompt` (vocabulary / topic / prior-segment hint — **not** a chat system prompt)
@@ -34,13 +34,13 @@ Supported backends:
 ## Architecture
 
 ```
-AudioRecorder (PCM 16kHz mono)
-        │
-        ▼
+AudioRecorder (float PCM, 16kHz mono)
+         │
+         ▼
 SpeechRecognizer
-        │
-        ▼
-SpeechAsrClient
+         │
+         ▼
+Provider client
         ├── MimoAsrClient              → POST {base}/chat/completions
         └── OpenAiCompatibleAsrClient  → POST {base}/audio/transcriptions
                 │
@@ -153,6 +153,29 @@ Content-Type: multipart/form-data
 Text from JSON `text` (or plain-text body if the server does not return JSON).
 
 There is **no** `chat/completions` / `audio_url` path for this provider anymore.
+
+## Extension API
+
+Third-party recognizers register before the first client tick:
+
+```java
+SpeechRecognizer.register(
+        10,
+        Identifier.of("my_mod", "my_recognizer"),
+        MySpeechRecognizer::new
+);
+```
+
+Lower priority numbers win. Registration after client startup triggers a
+re-selection automatically. `SpeechRecognizer.recognize(float[])` remains the
+simple compatibility API and returns text; the mod UI uses
+`recognizeOutcome(float[])` to display request errors.
+
+Implementations should load resources in `activate()`, release them in
+`deactivate()`, and call the superclass method after successful activation or
+deactivation. Fabric integrations can subscribe through
+`McmtiSpeechRecognizerEvents`; NeoForge integrations subscribe to
+`MicrophoneTextInputNeoForge.getEventBus()` and `SpeechRecognizerEvent`.
 
 ## Dependencies
 

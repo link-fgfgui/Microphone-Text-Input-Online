@@ -45,5 +45,11 @@
     "message.mcmti.recordingAudio": "§eجاري تسجيل الصوت...",
     "message.mcmti.speechRecognizerNotReady": "§cالتعرف غير جاهز (تحقق من عنوان API / المفتاح)",
     "modmenu.descriptionTranslation.mcmti": "أداة إدخال رسائل الدردشة بالتعرف على الكلام لماينكرافت.",
-    "modmenu.nameTranslation.mcmti": "إدخال نص من الميكروفون"
+    "modmenu.nameTranslation.mcmti": "إدخال نص من الميكروفون",
+    "message.mcmti.mimoReady": "§aMiMo ASR ✓",
+    "message.mcmti.openAiReady": "§aOpenAI ASR ✓",
+    "message.mcmti.noRecognizerAvailable": "§cالتعرف غير جاهز (تحقق من عنوان API / المفتاح)",
+    "mcmti.midnightconfig.encodingRepair": "Encoding Repair",
+    "mcmti.midnightconfig.srcEncoding": "Source Encoding",
+    "mcmti.midnightconfig.dstEncoding": "Destination Encoding"
 }

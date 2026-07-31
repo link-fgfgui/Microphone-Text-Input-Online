@@ -1,0 +1,15 @@
+modLoader = "javafml"
+loaderVersion = "[2,)"
+license = "MIT"
+
+[[mods]]
+modId = "mcmti_test"
+version = "1.0.0"
+displayName = "MCMti NeoForge API Test"
+
+[[dependencies.mcmti_test]]
+modId = "mcmti"
+type = "required"
+versionRange = "[3.0.0,)"
+ordering = "AFTER"
+side = "CLIENT"

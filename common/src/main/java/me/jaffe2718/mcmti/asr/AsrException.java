@@ -6,7 +6,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Thrown when an online speech recognition request fails.
  */
-public class AsrException extends Exception {
+public class AsrException extends RuntimeException {
     private final int statusCode;
 
     public AsrException(@NotNull String message) {

@@ -10,4 +10,5 @@ dependencies {
 
     modImplementation "dev.architectury:architectury:$rootProject.architectury_api_version"
     modImplementation "maven.modrinth:midnightlib:${rootProject.midnightlib_version}-fabric"
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
 }

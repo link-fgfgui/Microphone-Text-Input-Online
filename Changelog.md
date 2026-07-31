@@ -1,5 +1,15 @@
 ## Changelog
 
+### 3.0.0
+
+1. API: add extensible `SpeechRecognizer` registration with priority selection
+2. API: restore Fabric and NeoForge recognizer lifecycle events
+3. fix: initialize after client startup so late third-party registrations work
+4. fix: failed recognizers fall back to the next enabled implementation
+5. fix: serialize registry changes and protect recognition state across config reloads
+
+### 2.x provider changes
+
 1. feature: OpenAI-compatible ASR provider (Qwen3-ASR / vLLM / DashScope)
 2. support: multipart `audio/transcriptions` only
 3. config: `transcriptionPrompt` (ASR `prompt` vocabulary/topic hint, not system), optional `httpProxy`
