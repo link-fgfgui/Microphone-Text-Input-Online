@@ -59,8 +59,14 @@ SpeechRecognizer.register(
 ```
 
 Initial activation happens after all client initializers have run. Registrations
-made later trigger re-selection automatically. Call `SpeechRecognizer.init()`
-after changing configuration that affects `enabled()` or recognizer resources.
+made later re-select incrementally: a newly registered recognizer that is enabled
+and has a higher priority (smaller value) than the current instance immediately
+takes over the instance id and the previous instance is deactivated — activation
+of the new one stays lazy and happens on the next `recognize()` call.
+Lower-priority or disabled recognizers simply wait for the next re-selection.
+Call `SpeechRecognizer.init()` after changing configuration that affects
+`enabled()` or recognizer resources; it re-runs the full selection across all
+recognizers.
 
 ## Events
 

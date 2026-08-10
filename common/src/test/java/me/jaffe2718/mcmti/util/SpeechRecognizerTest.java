@@ -40,6 +40,49 @@ class SpeechRecognizerTest {
     }
 
     @Test
+    void lowerPriorityRegistrationAfterStartupDoesNotDisturbActiveInstance() {
+        SpeechRecognizer.register(10, id("initial"), WorkingRecognizer::new);
+        SpeechRecognizer.init();
+        assertEquals(id("initial"), SpeechRecognizer.getInstanceID());
+
+        SpeechRecognizer.register(20, id("late"), LateRecognizer::new);
+
+        assertEquals(id("initial"), SpeechRecognizer.getInstanceID());
+        assertEquals("working", SpeechRecognizer.recognize(new float[]{0.25f}));
+    }
+
+    @Test
+    void disabledHigherPriorityRegistrationDoesNotDisturbActiveInstance() {
+        SpeechRecognizer.register(10, id("initial"), WorkingRecognizer::new);
+        SpeechRecognizer.init();
+        assertEquals(id("initial"), SpeechRecognizer.getInstanceID());
+
+        SpeechRecognizer.register(0, id("disabled"), DisabledRecognizer::new);
+
+        assertEquals(id("initial"), SpeechRecognizer.getInstanceID());
+        assertEquals("working", SpeechRecognizer.recognize(new float[]{0.25f}));
+    }
+
+    @Test
+    void registrationAfterStartupActivatesOnlyWhenRecognized() {
+        CountingRecognizer.calls = 0;
+        CountingRecognizer.activations = 0;
+        SpeechRecognizer.register(10, id("initial"), WorkingRecognizer::new);
+        SpeechRecognizer.init();
+        assertEquals(id("initial"), SpeechRecognizer.getInstanceID());
+
+        // Registering a higher-priority recognizer takes over the instance id
+        // immediately, but activation stays lazy until the next recognize() call.
+        SpeechRecognizer.register(0, id("counting"), CountingRecognizer::new);
+
+        assertEquals(id("counting"), SpeechRecognizer.getInstanceID());
+        assertEquals(0, CountingRecognizer.activations);
+        assertEquals("counting", SpeechRecognizer.recognize(new float[]{0.25f}));
+        assertEquals(1, CountingRecognizer.activations);
+        assertEquals(1, CountingRecognizer.calls);
+    }
+
+    @Test
     void emptyAudioDoesNotInvokeRecognizer() {
         CountingRecognizer.calls = 0;
         SpeechRecognizer.register(0, id("counting"), CountingRecognizer::new);
@@ -90,6 +133,22 @@ class SpeechRecognizerTest {
         }
     }
 
+    private static final class DisabledRecognizer extends TestRecognizer {
+        private DisabledRecognizer(Identifier id) {
+            super(id);
+        }
+
+        @Override
+        public boolean enabled() {
+            return false;
+        }
+
+        @Override
+        public @NotNull String transcribe(float[] audio) {
+            return "disabled";
+        }
+    }
+
     private static class WorkingRecognizer extends TestRecognizer {
         private WorkingRecognizer(Identifier id) {
             super(id);
@@ -114,9 +173,16 @@ class SpeechRecognizerTest {
 
     private static final class CountingRecognizer extends TestRecognizer {
         private static int calls;
+        private static int activations;
 
         private CountingRecognizer(Identifier id) {
             super(id);
+        }
+
+        @Override
+        protected void activate() throws IOException {
+            activations++;
+            super.activate();
         }
 
         @Override

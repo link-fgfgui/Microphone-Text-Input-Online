@@ -24,8 +24,6 @@ public abstract class SpeechRecognizer {
 
     private static int instanceID = Integer.MAX_VALUE;
 
-    private static boolean initialized;
-
     private static final Object RECONFIGURE_LOCK = new Object();
 
     private static final Text GLOBAL_UNAVAILABLE_TOAST = Text.translatable("message.mcmti.noRecognizerAvailable");
@@ -85,7 +83,6 @@ public abstract class SpeechRecognizer {
             throw new IllegalStateException("Recognizer constructor returned null");
         }
         int assignedPriority;
-        boolean reinitialize;
         synchronized (SpeechRecognizer.class) {
             if (registeredIds.containsKey(regId)) {
                 throw new IllegalStateException(
@@ -100,13 +97,24 @@ public abstract class SpeechRecognizer {
             assignedPriority = priority;
             recognizerRegistry.put(assignedPriority, recognizer);
             registeredIds.put(regId, assignedPriority);
-            reinitialize = initialized;
+            // Incremental re-selection (3.x behavior): if the newly registered recognizer
+            // is enabled and has higher priority than the current instance, it takes over
+            // the instanceID immediately and the previous instance is deactivated.
+            // Activation itself stays lazy — the new recognizer is activated on the next
+            // recognize() call. Registrations that are disabled or lower priority simply
+            // wait for the next init() to re-run full selection.
+            if (assignedPriority < instanceID && recognizer.enabled()) {
+                SpeechRecognizer previous = recognizerRegistry.get(instanceID);
+                if (previous != null) {
+                    synchronized (previous) {
+                        previous.deactivate();
+                    }
+                }
+                instanceID = assignedPriority;
+            }
         }
         MicrophoneTextInput.LOGGER.info("Recognizer {} registered with priority {}", recognizer, assignedPriority);
         triggerEvent(EventType.SPEECH_RECOGNIZER_REGISTERED, defaultPriority, assignedPriority, recognizer);
-        if (reinitialize) {
-            init();
-        }
     }
 
     public static void deregister() {
@@ -119,7 +127,6 @@ public abstract class SpeechRecognizer {
                 recognizerRegistry.clear();
                 registeredIds.clear();
                 instanceID = Integer.MAX_VALUE;
-                initialized = false;
             }
             for (SpeechRecognizer recognizer : recognizers) {
                 synchronized (recognizer) {
@@ -134,7 +141,6 @@ public abstract class SpeechRecognizer {
         synchronized (RECONFIGURE_LOCK) {
             List<Map.Entry<Integer, SpeechRecognizer>> entries;
             synchronized (SpeechRecognizer.class) {
-                initialized = true;
                 entries = new ArrayList<>(recognizerRegistry.entrySet());
             }
             for (Map.Entry<Integer, SpeechRecognizer> entry : entries) {
