@@ -8,7 +8,7 @@ and supplies normalized mono `float[]` samples at 16 kHz.
 
 ```java
 public final class MyRecognizer extends SpeechRecognizer {
-    public MyRecognizer(Identifier id) {
+    public MyRecognizer(ResourceLocation id) {
         super(id);
     }
 
@@ -18,13 +18,13 @@ public final class MyRecognizer extends SpeechRecognizer {
     }
 
     @Override
-    protected Text availableToast() {
-        return Text.literal("My recognizer ready");
+    protected Component availableToast() {
+        return Component.literal("My recognizer ready");
     }
 
     @Override
-    protected Text unavailableToast() {
-        return Text.literal("My recognizer unavailable");
+    protected Component unavailableToast() {
+        return Component.literal("My recognizer unavailable");
     }
 
     @Override
@@ -53,7 +53,7 @@ the next free value.
 ```java
 SpeechRecognizer.register(
         10,
-        Identifier.of("my_mod", "my_recognizer"),
+        ResourceLocation.fromNamespaceAndPath("my_mod", "my_recognizer"),
         MyRecognizer::new
 );
 ```

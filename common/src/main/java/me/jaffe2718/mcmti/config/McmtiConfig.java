@@ -7,11 +7,10 @@ import eu.midnightdust.lib.config.MidnightConfigScreen;
 import me.jaffe2718.mcmti.asr.mimo.MimoAsrClient;
 import me.jaffe2718.mcmti.util.AudioRecorder;
 import me.jaffe2718.mcmti.util.SpeechRecognizer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.text.Text;
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
 import java.util.List;
 
 public class McmtiConfig extends MidnightConfig {
@@ -55,38 +54,38 @@ public class McmtiConfig extends MidnightConfig {
         int btnW = 72;
         int gap = 6;
 
-        final ButtonWidget[] pair = new ButtonWidget[2];
+        final Button[] pair = new Button[2];
 
-        pair[0] = ButtonWidget.builder(
-                Text.translatable("mcmti.midnightconfig.button.loadMicrophone"),
+        pair[0] = Button.builder(
+                Component.translatable("mcmti.midnightconfig.button.loadMicrophone"),
                 button -> {
                     boolean ok = AudioRecorder.ensureOpen();
                     notifyPlayer(ok
-                            ? Text.translatable("message.mcmti.microphoneLoaded")
-                            : Text.translatable("message.mcmti.audioInputDeviceLoadFailed"));
+                            ? Component.translatable("message.mcmti.microphoneLoaded")
+                            : Component.translatable("message.mcmti.audioInputDeviceLoadFailed"));
                     refreshMicButtons(pair[0], pair[1]);
                 }
-        ).dimensions(x, 0, btnW, 20).build();
+        ).bounds(x, 0, btnW, 20).build();
 
-        pair[1] = ButtonWidget.builder(
-                Text.translatable("mcmti.midnightconfig.button.unloadMicrophone"),
+        pair[1] = Button.builder(
+                Component.translatable("mcmti.midnightconfig.button.unloadMicrophone"),
                 button -> {
                     AudioRecorder.destroy();
-                    notifyPlayer(Text.translatable("message.mcmti.microphoneUnloaded"));
+                    notifyPlayer(Component.translatable("message.mcmti.microphoneUnloaded"));
                     refreshMicButtons(pair[0], pair[1]);
                 }
-        ).dimensions(x + btnW + gap, 0, btnW, 20).build();
+        ).bounds(x + btnW + gap, 0, btnW, 20).build();
 
         refreshMicButtons(pair[0], pair[1]);
 
         list.addButton(
                 List.of(pair[0], pair[1]),
-                Text.translatable("mcmti.midnightconfig.microphone"),
+                Component.translatable("mcmti.midnightconfig.microphone"),
                 new EntryInfo(null, modid)
         );
     }
 
-    private static void refreshMicButtons(ButtonWidget loadBtn, ButtonWidget unloadBtn) {
+    private static void refreshMicButtons(Button loadBtn, Button unloadBtn) {
         boolean open = AudioRecorder.isOpen();
         if (loadBtn != null) {
             loadBtn.active = !open;
@@ -96,10 +95,10 @@ public class McmtiConfig extends MidnightConfig {
         }
     }
 
-    private static void notifyPlayer(Text message) {
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+    private static void notifyPlayer(Component message) {
+        LocalPlayer player = Minecraft.getInstance().player;
         if (player != null) {
-            player.sendMessage(message, true);
+            player.displayClientMessage(message, true);
         }
     }
 

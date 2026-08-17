@@ -7,8 +7,8 @@ import me.jaffe2718.mcmti.asr.WavAudio;
 import me.jaffe2718.mcmti.config.McmtiConfig;
 import me.jaffe2718.mcmti.util.AudioRecorder;
 import me.jaffe2718.mcmti.util.SpeechRecognizer;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,7 +18,7 @@ public final class OpenAiCompatibleSpeechRecognizer extends SpeechRecognizer {
 
     private volatile @Nullable OpenAiCompatibleAsrClient client;
 
-    public OpenAiCompatibleSpeechRecognizer(@NotNull Identifier regId) {
+    public OpenAiCompatibleSpeechRecognizer(@NotNull ResourceLocation regId) {
         super(regId);
     }
 
@@ -28,13 +28,13 @@ public final class OpenAiCompatibleSpeechRecognizer extends SpeechRecognizer {
     }
 
     @Override
-    protected @NotNull Text availableToast() {
-        return Text.translatable("message.mcmti.openAiReady");
+    protected @NotNull Component availableToast() {
+        return Component.translatable("message.mcmti.openAiReady");
     }
 
     @Override
-    protected @NotNull Text unavailableToast() {
-        return Text.translatable("message.mcmti.speechRecognizerNotReady");
+    protected @NotNull Component unavailableToast() {
+        return Component.translatable("message.mcmti.speechRecognizerNotReady");
     }
 
     @Override

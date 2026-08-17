@@ -271,7 +271,7 @@ public final class AudioRecorder {
                 chunkSize = Math.max(frameSize, (chunkSize / frameSize) * frameSize);
                 byte[] chunk = new byte[chunkSize];
 
-                while (MicrophoneTextInput.RECOGNIZE_KEY.isPressed()) {
+                while (MicrophoneTextInput.RECOGNIZE_KEY.isDown()) {
                     int available = rec.line.available();
                     int toRead;
                     if (available >= frameSize) {

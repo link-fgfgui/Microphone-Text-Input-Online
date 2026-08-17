@@ -4,7 +4,7 @@ import me.jaffe2718.mcmti.MicrophoneTextInput;
 import me.jaffe2718.mcmti.event.EventSystem;
 import me.jaffe2718.mcmti.util.AudioRecorder;
 import me.jaffe2718.mcmti.util.SpeechRecognizer;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -40,9 +40,9 @@ public final class MicrophoneTextInputNeoForge {
         if (CLIENT_STARTED.compareAndSet(false, true)) {
             Thread.ofVirtual().start(SpeechRecognizer::init);
         }
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client != null && client.world != null) {
-            EventSystem.showRecognizeStatus(client.world);
+        Minecraft client = Minecraft.getInstance();
+        if (client != null && client.level != null) {
+            EventSystem.showRecognizeStatus(client.level);
         }
     }
 

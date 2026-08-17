@@ -1,12 +1,12 @@
 package me.jaffe2718.mcmti.util;
 
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -92,12 +92,12 @@ class SpeechRecognizerTest {
         assertEquals(0, CountingRecognizer.calls);
     }
 
-    private static Identifier id(String path) {
-        return Identifier.of("mcmti_test", path);
+    private static ResourceLocation id(String path) {
+        return ResourceLocation.fromNamespaceAndPath("mcmti_test", path);
     }
 
     private abstract static class TestRecognizer extends SpeechRecognizer {
-        private TestRecognizer(Identifier id) {
+        private TestRecognizer(ResourceLocation id) {
             super(id);
         }
 
@@ -107,18 +107,18 @@ class SpeechRecognizerTest {
         }
 
         @Override
-        protected @NotNull Text availableToast() {
-            return Text.literal("ready");
+        protected @NotNull Component availableToast() {
+            return Component.literal("ready");
         }
 
         @Override
-        protected @NotNull Text unavailableToast() {
-            return Text.literal("unavailable");
+        protected @NotNull Component unavailableToast() {
+            return Component.literal("unavailable");
         }
     }
 
     private static final class FailingRecognizer extends TestRecognizer {
-        private FailingRecognizer(Identifier id) {
+        private FailingRecognizer(ResourceLocation id) {
             super(id);
         }
 
@@ -134,7 +134,7 @@ class SpeechRecognizerTest {
     }
 
     private static final class DisabledRecognizer extends TestRecognizer {
-        private DisabledRecognizer(Identifier id) {
+        private DisabledRecognizer(ResourceLocation id) {
             super(id);
         }
 
@@ -150,7 +150,7 @@ class SpeechRecognizerTest {
     }
 
     private static class WorkingRecognizer extends TestRecognizer {
-        private WorkingRecognizer(Identifier id) {
+        private WorkingRecognizer(ResourceLocation id) {
             super(id);
         }
 
@@ -161,7 +161,7 @@ class SpeechRecognizerTest {
     }
 
     private static final class LateRecognizer extends TestRecognizer {
-        private LateRecognizer(Identifier id) {
+        private LateRecognizer(ResourceLocation id) {
             super(id);
         }
 
@@ -175,7 +175,7 @@ class SpeechRecognizerTest {
         private static int calls;
         private static int activations;
 
-        private CountingRecognizer(Identifier id) {
+        private CountingRecognizer(ResourceLocation id) {
             super(id);
         }
 

@@ -11,3 +11,16 @@ dependencies {
     modImplementation "maven.modrinth:midnightlib:${rootProject.midnightlib_version}-fabric"
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
 }
+
+publishing {
+    publications {
+        mcmtiCommon(MavenPublication) {
+            artifactId = "mcmti-common"
+            // Loom's `jar` task emits the NAMED jar with classifier `dev`.
+            // Publish it as the MAIN artifact (empty classifier) so consumers
+            // resolve me.jaffe2718:mcmti-common:3.0.0 and get the classes.
+            artifact(jar) { classifier = '' }
+            artifact sourcesJar
+        }
+    }
+}

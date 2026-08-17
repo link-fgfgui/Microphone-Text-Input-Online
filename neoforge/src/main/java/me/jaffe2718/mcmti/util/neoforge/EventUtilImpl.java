@@ -4,7 +4,7 @@ import me.jaffe2718.mcmti.event.EventType;
 import me.jaffe2718.mcmti.neoforge.MicrophoneTextInputNeoForge;
 import me.jaffe2718.mcmti.neoforge.event.SpeechRecognizerEvent;
 import me.jaffe2718.mcmti.util.SpeechRecognizer;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
@@ -49,7 +49,7 @@ public abstract class EventUtilImpl {
                 }
             }
             case ALL_SPEECH_RECOGNIZERS_DEREGISTERED -> {
-                if (args instanceof Identifier[] ids) {
+                if (args instanceof ResourceLocation[] ids) {
                     MicrophoneTextInputNeoForge.getEventBus().post(new SpeechRecognizerEvent.Deregistered(ids));
                 } else {
                     throw new IllegalArgumentException(String.format("Invalid arguments %s for %s event", Arrays.toString(args), event));

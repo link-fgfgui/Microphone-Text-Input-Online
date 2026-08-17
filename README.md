@@ -161,7 +161,7 @@ Third-party recognizers register before the first client tick:
 ```java
 SpeechRecognizer.register(
         10,
-        Identifier.of("my_mod", "my_recognizer"),
+        ResourceLocation.fromNamespaceAndPath("my_mod", "my_recognizer"),
         MySpeechRecognizer::new
 );
 ```

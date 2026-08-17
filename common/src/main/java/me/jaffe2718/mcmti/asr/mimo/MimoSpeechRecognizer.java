@@ -7,8 +7,8 @@ import me.jaffe2718.mcmti.asr.WavAudio;
 import me.jaffe2718.mcmti.config.McmtiConfig;
 import me.jaffe2718.mcmti.util.AudioRecorder;
 import me.jaffe2718.mcmti.util.SpeechRecognizer;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,7 +18,7 @@ public final class MimoSpeechRecognizer extends SpeechRecognizer {
 
     private volatile @Nullable MimoAsrClient client;
 
-    public MimoSpeechRecognizer(@NotNull Identifier regId) {
+    public MimoSpeechRecognizer(@NotNull ResourceLocation regId) {
         super(regId);
     }
 
@@ -28,13 +28,13 @@ public final class MimoSpeechRecognizer extends SpeechRecognizer {
     }
 
     @Override
-    protected @NotNull Text availableToast() {
-        return Text.translatable("message.mcmti.mimoReady");
+    protected @NotNull Component availableToast() {
+        return Component.translatable("message.mcmti.mimoReady");
     }
 
     @Override
-    protected @NotNull Text unavailableToast() {
-        return Text.translatable("message.mcmti.speechRecognizerNotReady");
+    protected @NotNull Component unavailableToast() {
+        return Component.translatable("message.mcmti.speechRecognizerNotReady");
     }
 
     @Override

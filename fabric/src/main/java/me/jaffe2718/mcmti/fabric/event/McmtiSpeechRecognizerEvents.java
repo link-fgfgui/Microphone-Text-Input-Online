@@ -3,7 +3,7 @@ package me.jaffe2718.mcmti.fabric.event;
 import me.jaffe2718.mcmti.util.SpeechRecognizer;
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 public final class McmtiSpeechRecognizerEvents {
 
@@ -64,6 +64,6 @@ public final class McmtiSpeechRecognizerEvents {
 
     @FunctionalInterface
     public interface DeregisterCallback {
-        void onTriggered(Identifier[] ids);
+        void onTriggered(ResourceLocation[] ids);
     }
 }

@@ -1,7 +1,7 @@
 package me.jaffe2718.mcmti.neoforge.event;
 
 import me.jaffe2718.mcmti.util.SpeechRecognizer;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.Event;
 import net.neoforged.fml.event.IModBusEvent;
 import org.jetbrains.annotations.NotNull;
@@ -79,14 +79,14 @@ public abstract class SpeechRecognizerEvent extends Event implements IModBusEven
 
     public static class Deregistered extends SpeechRecognizerEvent {
 
-        private final Identifier[] ids;
+        private final ResourceLocation[] ids;
 
-        public Deregistered(Identifier[] ids) {
+        public Deregistered(ResourceLocation[] ids) {
             super(null);
             this.ids = ids.clone();
         }
 
-        public Identifier[] getIds() {
+        public ResourceLocation[] getIds() {
             return ids.clone();
         }
     }

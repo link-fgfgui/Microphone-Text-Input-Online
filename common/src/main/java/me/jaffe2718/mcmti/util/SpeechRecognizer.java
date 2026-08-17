@@ -4,9 +4,9 @@ import me.jaffe2718.mcmti.MicrophoneTextInput;
 import me.jaffe2718.mcmti.asr.AsrException;
 import me.jaffe2718.mcmti.config.McmtiConfig;
 import me.jaffe2718.mcmti.event.EventType;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,25 +26,25 @@ public abstract class SpeechRecognizer {
 
     private static final Object RECONFIGURE_LOCK = new Object();
 
-    private static final Text GLOBAL_UNAVAILABLE_TOAST = Text.translatable("message.mcmti.noRecognizerAvailable");
+    private static final Component GLOBAL_UNAVAILABLE_TOAST = Component.translatable("message.mcmti.noRecognizerAvailable");
 
     private static final TreeMap<Integer, SpeechRecognizer> recognizerRegistry = new TreeMap<>();
 
-    private static final Map<Identifier, Integer> registeredIds = new HashMap<>();
+    private static final Map<ResourceLocation, Integer> registeredIds = new HashMap<>();
 
-    public final @NotNull Identifier id;
+    public final @NotNull ResourceLocation id;
 
     private volatile boolean active;
 
-    protected SpeechRecognizer(@NotNull Identifier regId) {
+    protected SpeechRecognizer(@NotNull ResourceLocation regId) {
         this.id = regId;
     }
 
     public abstract boolean enabled();
 
-    protected abstract @NotNull Text availableToast();
+    protected abstract @NotNull Component availableToast();
 
-    protected abstract @NotNull Text unavailableToast();
+    protected abstract @NotNull Component unavailableToast();
 
     public abstract @NotNull String transcribe(float[] audio);
 
@@ -54,9 +54,9 @@ public abstract class SpeechRecognizer {
 
     protected void activate() throws IOException {
         this.active = true;
-        if (MinecraftClient.getInstance() != null
-                && MinecraftClient.getInstance().player != null) {
-            MinecraftClient.getInstance().player.sendMessage(this.availableToast(), true);
+        if (Minecraft.getInstance() != null
+                && Minecraft.getInstance().player != null) {
+            Minecraft.getInstance().player.displayClientMessage(this.availableToast(), true);
         }
         triggerEvent(EventType.SPEECH_RECOGNIZER_ACTIVATED, this);
     }
@@ -74,8 +74,8 @@ public abstract class SpeechRecognizer {
                 this.getClass().getSimpleName(), System.identityHashCode(this), id, active);
     }
 
-    public static void register(int priority, @NotNull Identifier regId,
-                                @NotNull Function<Identifier, ? extends SpeechRecognizer> constructor)
+    public static void register(int priority, @NotNull ResourceLocation regId,
+                                @NotNull Function<ResourceLocation, ? extends SpeechRecognizer> constructor)
             throws IllegalStateException {
         final int defaultPriority = priority;
         SpeechRecognizer recognizer = constructor.apply(regId);
@@ -118,11 +118,11 @@ public abstract class SpeechRecognizer {
     }
 
     public static void deregister() {
-        Identifier[] allIds;
+        ResourceLocation[] allIds;
         List<SpeechRecognizer> recognizers;
         synchronized (RECONFIGURE_LOCK) {
             synchronized (SpeechRecognizer.class) {
-                allIds = registeredIds.keySet().toArray(new Identifier[0]);
+                allIds = registeredIds.keySet().toArray(new ResourceLocation[0]);
                 recognizers = new ArrayList<>(recognizerRegistry.values());
                 recognizerRegistry.clear();
                 registeredIds.clear();
@@ -239,7 +239,7 @@ public abstract class SpeechRecognizer {
         return recognizer != null && recognizer.available();
     }
 
-    public static @NotNull Text instanceUnavailableToast() {
+    public static @NotNull Component instanceUnavailableToast() {
         SpeechRecognizer recognizer;
         synchronized (SpeechRecognizer.class) {
             recognizer = recognizerRegistry.get(instanceID);
@@ -247,7 +247,7 @@ public abstract class SpeechRecognizer {
         return recognizer != null ? recognizer.unavailableToast() : GLOBAL_UNAVAILABLE_TOAST;
     }
 
-    public static synchronized @Nullable Identifier getInstanceID() {
+    public static synchronized @Nullable ResourceLocation getInstanceID() {
         if (recognizerRegistry.containsKey(instanceID)) {
             return recognizerRegistry.get(instanceID).id;
         }
@@ -255,7 +255,7 @@ public abstract class SpeechRecognizer {
     }
 
     @SuppressWarnings("unused")
-    public static synchronized int queryPriority(Identifier id) throws NoSuchElementException {
+    public static synchronized int queryPriority(ResourceLocation id) throws NoSuchElementException {
         if (registeredIds.containsKey(id)) {
             return registeredIds.get(id);
         }
