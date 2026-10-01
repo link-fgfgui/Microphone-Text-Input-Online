@@ -10,7 +10,6 @@ displayName = "${mod_name}"
 authors = "${mod_author}"
 description = '''${description}'''
 logoFile = "assets/mcmti/icon.png"
-displayURL = "https://modrinth.com/mod/mcmti"
 
 [[dependencies.${mod_id}]]
 modId = "forge"

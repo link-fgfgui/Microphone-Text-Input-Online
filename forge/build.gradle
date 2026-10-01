@@ -1,7 +1,6 @@
 plugins {
     id 'multiloader-loader'
     id 'net.neoforged.moddev.legacyforge'
-    id 'com.modrinth.minotaur'
 }
 
 legacyForge {
@@ -46,17 +45,4 @@ dependencies {
 
 tasks.named('runClient') {
     jvmArgs '-Djava.awt.headless=false'
-}
-
-modrinth {
-    token = System.getenv("MODRINTH_TOKEN")
-    projectId = 'ynA13Vjn'
-    versionNumber = rootProject.version.toString() + "-forge"
-    versionType = rootProject.getPublishVersionType()
-    uploadFile = tasks.named('reobfJar')
-    loaders = ["forge"]
-    dependencies {
-        required.project 'midnightlib'
-    }
-    changelog = rootProject.publish_changelog
 }

@@ -37,7 +37,6 @@
         }
     ],
     "contact": {
-        "homepage": "https://modrinth.com/mod/mcmti",
         "issues": "https://github.com/Jaffe2718/Microphone-Text-Input/issues",
         "sources": "https://github.com/Jaffe2718/Microphone-Text-Input"
     },
@@ -61,9 +60,7 @@
     },
     "custom": {
         "modmenu": {
-            "links": {
-                "Modrinth": "https://modrinth.com/mod/mcmti"
-            },
+            "links": {},
             "update_checker": true
         }
     }

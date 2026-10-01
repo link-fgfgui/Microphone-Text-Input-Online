@@ -1,26 +1,4 @@
 plugins {
     id 'fabric-loom' version '1.14-SNAPSHOT' apply(false)
     id 'net.neoforged.moddev.legacyforge' version '2.0.107' apply(false)
-    id 'com.modrinth.minotaur' version '2.+' apply false
-}
-
-ext.publish_changelog = {
-    if (rootProject.file('Changelog.md').exists()) {
-        println('Found Changelog.md')
-        return rootProject.file('Changelog.md').text
-    } else {
-        println('Changelog.md not found, skipping changelog upload')
-        return ''
-    }
-}()
-
-ext.getPublishVersionType = {
-    def modVersion = rootProject.version.toString()
-    if (modVersion.contains("alpha")) {
-        return 'alpha'
-    } else if (modVersion.contains("rc") || modVersion.contains("beta")) {
-        return 'beta'
-    } else {
-        return 'release'
-    }
 }

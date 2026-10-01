@@ -1,7 +1,6 @@
 plugins {
     id 'multiloader-loader'
     id 'fabric-loom'
-    id 'com.modrinth.minotaur'
 }
 
 dependencies {
@@ -39,19 +38,4 @@ loom {
 
 processResources {
     inputs.property 'version', project.version
-}
-
-modrinth {
-    token = System.getenv("MODRINTH_TOKEN")
-    projectId = 'ynA13Vjn'
-    versionNumber = rootProject.version.toString() + "-fabric"
-    versionType = rootProject.getPublishVersionType()
-    uploadFile = remapJar
-    loaders = ["fabric", "quilt"]
-    dependencies {
-        required.project 'fabric-api'
-        required.project 'midnightlib'
-        optional.project 'modmenu'
-    }
-    changelog = rootProject.publish_changelog
 }
