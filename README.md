@@ -1,7 +1,7 @@
 # **Microphone Text Input Mod Developer Documentation**
 
 <div style="text-align: center;">
-<p style="font-size: large;">Architectury 2.x</p>
+<p style="font-size: large;">MultiLoader (Fabric + Forge) for Minecraft 1.20.1</p>
 </div>
 
 <div style="text-align: center;">
@@ -161,7 +161,7 @@ Third-party recognizers register before the first client tick:
 ```java
 SpeechRecognizer.register(
         10,
-        ResourceLocation.fromNamespaceAndPath("my_mod", "my_recognizer"),
+        new ResourceLocation("my_mod", "my_recognizer"),
         MySpeechRecognizer::new
 );
 ```
@@ -174,16 +174,15 @@ simple compatibility API and returns text; the mod UI uses
 Implementations should load resources in `activate()`, release them in
 `deactivate()`, and call the superclass method after successful activation or
 deactivation. Fabric integrations can subscribe through
-`McmtiSpeechRecognizerEvents`; NeoForge integrations subscribe to
-`MicrophoneTextInputNeoForge.getEventBus()` and `SpeechRecognizerEvent`.
+`McmtiSpeechRecognizerEvents`; Forge integrations subscribe to
+`MicrophoneTextInputForge.getEventBus()` and `SpeechRecognizerEvent`.
 
 ## Dependencies
 
-| Dependency | Fabric | NeoForge |
-|------------|--------|----------|
-| Java 21 | ✓ | ✓ |
+| Dependency | Fabric | Forge |
+|------------|--------|-------|
+| Java 17 | ✓ | ✓ |
 | Fabric API | see fabric.mod.json | ❌ |
-| Architectury API | ❌ | see neoforge.mods.toml |
 | MidnightLib | ✓ | ✓ |
 
 ## Usage

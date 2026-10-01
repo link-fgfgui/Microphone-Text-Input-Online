@@ -24,7 +24,7 @@ public final class MicrophoneTextInput {
         } catch (Throwable t) {
             LOGGER.error("Audio recorder init failed; speech input will be unavailable", t);
         }
-        SpeechRecognizer.register(100, ResourceLocation.fromNamespaceAndPath(MOD_ID, "mimo"), MimoSpeechRecognizer::new);
-        SpeechRecognizer.register(100, ResourceLocation.fromNamespaceAndPath(MOD_ID, "openai_compatible"), OpenAiCompatibleSpeechRecognizer::new);
+        SpeechRecognizer.register(100, new ResourceLocation(MOD_ID, "mimo"), MimoSpeechRecognizer::new);
+        SpeechRecognizer.register(100, new ResourceLocation(MOD_ID, "openai_compatible"), OpenAiCompatibleSpeechRecognizer::new);
     }
 }

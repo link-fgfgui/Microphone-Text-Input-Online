@@ -21,11 +21,11 @@ public final class MicrophoneTextInputFabric implements ClientModInitializer {
     private static void registerEvents() {
         ClientTickEvents.END_WORLD_TICK.register(EventSystem::showRecognizeStatus);
         ClientLifecycleEvents.CLIENT_STARTED.register(client ->
-                Thread.ofVirtual().start(SpeechRecognizer::init));
+                new Thread(SpeechRecognizer::init, "thread.mcmti.recognizer.init").start());
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             SpeechRecognizer.deregister();
             AudioRecorder.destroy();
         });
-        Thread.ofVirtual().start(EventSystem::recognizeTask).setName("thread.mcmti.recognizer.loop");
+        new Thread(EventSystem::recognizeTask, "thread.mcmti.recognizer.loop").start();
     }
 }

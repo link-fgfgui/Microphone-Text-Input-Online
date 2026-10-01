@@ -1,7 +1,8 @@
-package me.jaffe2718.mcmti.util.fabric;
+package me.jaffe2718.mcmti.util.forge;
 
 import me.jaffe2718.mcmti.event.EventType;
-import me.jaffe2718.mcmti.fabric.event.McmtiSpeechRecognizerEvents;
+import me.jaffe2718.mcmti.forge.MicrophoneTextInputForge;
+import me.jaffe2718.mcmti.forge.event.SpeechRecognizerEvent;
 import me.jaffe2718.mcmti.util.EventDispatcher;
 import me.jaffe2718.mcmti.util.SpeechRecognizer;
 import net.minecraft.resources.ResourceLocation;
@@ -20,21 +21,21 @@ public final class EventUtilImpl implements EventDispatcher {
                         args[0] instanceof Integer defaultPriority &&
                         args[1] instanceof Integer priority &&
                         args[2] instanceof SpeechRecognizer recognizer) {
-                    McmtiSpeechRecognizerEvents.SPEECH_RECOGNIZER_REGISTERED.invoker().onTriggered(defaultPriority, priority, recognizer);
+                    MicrophoneTextInputForge.getEventBus().post(new SpeechRecognizerEvent.Registered(defaultPriority, priority, recognizer));
                 } else {
                     throw new IllegalArgumentException(String.format("Invalid arguments %s for %s event", Arrays.toString(args), event));
                 }
             }
             case SPEECH_RECOGNIZER_ACTIVATED -> {
                 if (args.length == 1 && args[0] instanceof SpeechRecognizer recognizer) {
-                    McmtiSpeechRecognizerEvents.SPEECH_RECOGNIZER_ACTIVATED.invoker().onTriggered(recognizer);
+                    MicrophoneTextInputForge.getEventBus().post(new SpeechRecognizerEvent.Activated(recognizer));
                 } else {
                     throw new IllegalArgumentException(String.format("Invalid arguments %s for %s event", Arrays.toString(args), event));
                 }
             }
             case SPEECH_RECOGNIZER_DEACTIVATED -> {
                 if (args.length == 1 && args[0] instanceof SpeechRecognizer recognizer) {
-                    McmtiSpeechRecognizerEvents.SPEECH_RECOGNIZER_DEACTIVATED.invoker().onTriggered(recognizer);
+                    MicrophoneTextInputForge.getEventBus().post(new SpeechRecognizerEvent.Deactivated(recognizer));
                 } else {
                     throw new IllegalArgumentException(String.format("Invalid arguments %s for %s event", Arrays.toString(args), event));
                 }
@@ -44,14 +45,14 @@ public final class EventUtilImpl implements EventDispatcher {
                         args[0] instanceof SpeechRecognizer recognizer &&
                         args[1] instanceof float[] audio &&
                         args[2] instanceof String transcription) {
-                    McmtiSpeechRecognizerEvents.SPEECH_RECOGNIZER_TRANSCRIBED.invoker().onTriggered(recognizer, audio, transcription);
+                    MicrophoneTextInputForge.getEventBus().post(new SpeechRecognizerEvent.Transcribed(recognizer, audio, transcription));
                 } else {
                     throw new IllegalArgumentException(String.format("Invalid arguments %s for %s event", Arrays.toString(args), event));
                 }
             }
             case ALL_SPEECH_RECOGNIZERS_DEREGISTERED -> {
                 if (args instanceof ResourceLocation[] ids) {
-                    McmtiSpeechRecognizerEvents.ALL_SPEECH_RECOGNIZERS_DEREGISTERED.invoker().onTriggered(ids);
+                    MicrophoneTextInputForge.getEventBus().post(new SpeechRecognizerEvent.Deregistered(ids));
                 } else {
                     throw new IllegalArgumentException(String.format("Invalid arguments %s for %s event", Arrays.toString(args), event));
                 }

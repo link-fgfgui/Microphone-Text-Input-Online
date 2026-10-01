@@ -22,7 +22,7 @@ jobs:
             -   name: Setup JDK
                 uses: actions/setup-java@v4
                 with:
-                    java-version: '21'
+                    java-version: '17'
                     distribution: 'temurin'
 
             -   name: Grant execute permission for gradlew
@@ -30,9 +30,8 @@ jobs:
 
             -   name: Read Gradle Properties
                 id: read_gradle_properties
-                run: |   # read ${mod_version}-${minecraft_version} from gradle.properties
-                    WHISPER_JNI_VERSION=$(sed -n 's/^[[:space:]]*whisper_jni_version[[:space:]]*=[[:space:]]*\(.*\)[[:space:]]*$/\1/p' gradle.properties)
-                    MOD_VERSION=$(sed -n 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*\(.*\)[[:space:]]*$/\1/p' gradle.properties)
+                run: |   # read ${version}-${minecraft_version} from gradle.properties
+                    MOD_VERSION=$(sed -n 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*\(.*\)[[:space:]]*$/\1/p' gradle.properties)
                     MINECRAFT_VERSION=$(sed -n 's/^[[:space:]]*minecraft_version[[:space:]]*=[[:space:]]*\(.*\)[[:space:]]*$/\1/p' gradle.properties)
                     TAG_NAME="v${MOD_VERSION}-${MINECRAFT_VERSION}"
                     if [[ "$MOD_VERSION" =~ alpha ]]; then
@@ -46,7 +45,6 @@ jobs:
 
                     echo "Modrinth Version Type: $MODRINTH_VERSION_TYPE"
                     
-                    echo "whisper_jni_version=$WHISPER_JNI_VERSION" >> $GITHUB_OUTPUT
                     if [ "$MODRINTH_VERSION_TYPE" = "release" ]; then
                       echo "gh_is_prerelease=false" >> $GITHUB_OUTPUT
                     else
@@ -61,7 +59,7 @@ jobs:
                     MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
                 run: |
                     ./gradlew :fabric:modrinth
-                    ./gradlew :neoforge:modrinth
+                    ./gradlew :forge:modrinth
 
             -   name: Create Release
                 id: create_release
@@ -95,7 +93,7 @@ jobs:
                         gh release upload ${{ steps.read_gradle_properties.outputs.tag_name }} "$jar_file" --clobber
                       fi
                     done
-                    for jar_file in neoforge/build/libs/*.jar; do
+                    for jar_file in forge/build/libs/*.jar; do
                       if [ -f "$jar_file" ]; then
                         asset_name=$(basename "$jar_file")
                         echo "Uploading $jar_file as $asset_name"

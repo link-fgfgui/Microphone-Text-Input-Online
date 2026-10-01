@@ -23,8 +23,8 @@ public interface EventSystem {
     ScheduledExecutorService SCHEDULED_EXECUTOR_SERVICE = Executors.newSingleThreadScheduledExecutor();
 
     static void showRecognizeStatus(ClientLevel world) {
-        if (Minecraft.getInstance().player instanceof LocalPlayer player
-                && Minecraft.getInstance().screen == null) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player != null && Minecraft.getInstance().screen == null) {
             if (AudioRecorder.hasOpenFailed()) {
                 player.displayClientMessage(Component.translatable("message.mcmti.audioInputDeviceLoadFailed"), true);
             } else if (!SpeechRecognizer.instanceAvailable()) {
@@ -46,8 +46,8 @@ public interface EventSystem {
         @Nullable Thread vthread = null;
         while (true) {
             try {
-                if (Minecraft.getInstance() != null &&
-                        Minecraft.getInstance().player instanceof LocalPlayer player
+                LocalPlayer player = Minecraft.getInstance() == null ? null : Minecraft.getInstance().player;
+                if (player != null
                         && Minecraft.getInstance().screen == null
                         && SpeechRecognizer.instanceAvailable()) {
                     switch (McmtiConfig.mode) {
@@ -57,7 +57,7 @@ public interface EventSystem {
                                 LockSupport.parkNanos(50_000_000L);
                                 break;
                             }
-                            Thread.ofVirtual().start(() -> {
+                            new Thread(() -> {
                                 var outcome = SpeechRecognizer.recognizeOutcome(audio);
                                 if (outcome.failed()) {
                                     player.displayClientMessage(Component.translatable(
@@ -66,12 +66,12 @@ public interface EventSystem {
                                     player.displayClientMessage(Component.translatable("message.mcmti.messageSent"), true);
                                     sendChatMessage(player, outcome.text());
                                 }
-                            });
+                            }, "thread.mcmti.recognizer.auto").start();
                         }
                         case RELEASE_KEY_TO_SEND -> {
                             if (MicrophoneTextInput.RECOGNIZE_KEY.isDown()) {
                                 float[] audio = AudioRecorder.record();
-                                vthread = Thread.ofVirtual().start(() -> {
+                                vthread = new Thread(() -> {
                                     var outcome = SpeechRecognizer.recognizeOutcome(audio);
                                     if (outcome.failed()) {
                                         player.displayClientMessage(Component.translatable(
@@ -81,7 +81,8 @@ public interface EventSystem {
                                                 () -> player.displayClientMessage(Component.translatable("message.mcmti.messageSent"), true), 100, TimeUnit.MILLISECONDS);
                                         sendChatMessage(player, outcome.text());
                                     }
-                                });
+                                }, "thread.mcmti.recognizer.send");
+                                vthread.start();
                             } else if (vthread != null && vthread.isAlive()) {
                                 player.displayClientMessage(Component.translatable("message.mcmti.recognizing"), true);
                             }
@@ -90,7 +91,7 @@ public interface EventSystem {
                         case RELEASE_KEY_TO_INPUT -> {
                             if (MicrophoneTextInput.RECOGNIZE_KEY.isDown()) {
                                 float[] audio = AudioRecorder.record();
-                                vthread = Thread.ofVirtual().start(() -> {
+                                vthread = new Thread(() -> {
                                     var outcome = SpeechRecognizer.recognizeOutcome(audio);
                                     if (outcome.failed()) {
                                         player.displayClientMessage(Component.translatable(
@@ -100,7 +101,8 @@ public interface EventSystem {
                                         Minecraft.getInstance().submit(() ->
                                                 Minecraft.getInstance().setScreen(new ChatScreen(McmtiConfig.prefix + text))).join();
                                     }
-                                });
+                                }, "thread.mcmti.recognizer.input");
+                                vthread.start();
                             } else if (vthread != null && vthread.isAlive()) {
                                 player.displayClientMessage(Component.translatable("message.mcmti.recognizing"), true);
                             }

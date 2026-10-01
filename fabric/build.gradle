@@ -1,90 +1,50 @@
 plugins {
+    id 'multiloader-loader'
+    id 'fabric-loom'
     id 'com.modrinth.minotaur'
-    id 'com.gradleup.shadow'
-}
-
-architectury {
-    platformSetupLoomIde()
-    fabric()
-}
-
-// Test sources provide a dedicated client integration fixture, not JVM unit tests.
-tasks.named('test') {
-    enabled = false
-}
-
-sourceSets {
-    test {
-        compileClasspath += main.compileClasspath
-        runtimeClasspath += main.runtimeClasspath
-    }
-}
-
-repositories {
-    maven {
-        name = "Terraformers"
-        url = "https://maven.terraformersmc.com/"
-    }
-}
-
-configurations {
-    common {
-        canBeResolved = true
-        canBeConsumed = false
-    }
-    compileClasspath.extendsFrom common
-    runtimeClasspath.extendsFrom common
-    developmentFabric.extendsFrom common
-    testCompileClasspath.extendsFrom common
-    testRuntimeClasspath.extendsFrom common
-
-    // Files in this configuration will be bundled into your mod using the Shadow plugin.
-    // Don't use the `shadow` configuration from the plugin itself as it's meant for excluding files.
-    shadowBundle {
-        canBeResolved = true
-        canBeConsumed = false
-    }
 }
 
 dependencies {
-    modImplementation "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:$rootProject.fabric_api_version"
-    modImplementation "maven.modrinth:midnightlib:${rootProject.midnightlib_version}-fabric"
-//    modRuntimeOnly "com.terraformersmc:modmenu:${rootProject.modmenu_version}"
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.layered {
+        officialMojangMappings()
+        parchment("org.parchmentmc.data:parchment-${parchment_minecraft}:${parchment_version}@zip")
+    }
+    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+    modImplementation "maven.modrinth:midnightlib:${midnightlib_version}-fabric"
+    implementation group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.1'
+    implementation project(":common")
+}
 
-    common(project(path: ':common', configuration: 'namedElements')) { transitive false }
-    shadowBundle project(path: ':common', configuration: 'transformProductionFabric')
-
+loom {
+    if (project(":common").file("src/main/resources/${mod_id}.accesswidener").exists()) {
+        accessWidenerPath.set(project(":common").file("src/main/resources/${mod_id}.accesswidener"))
+    }
+    runs {
+        client {
+            client()
+            setConfigName("Fabric Client")
+            ideConfigGenerated(true)
+            runDir("run")
+        }
+        server {
+            server()
+            setConfigName("Fabric Server")
+            ideConfigGenerated(true)
+            runDir("run")
+        }
+    }
 }
 
 processResources {
     inputs.property 'version', project.version
-
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version,
-                "compatibility_fabricloader_versions": project.compatibility_fabricloader_versions,
-                "compatibility_mc_versions": project.compatibility_mc_versions,
-                "compatibility_midnightlib_versions": project.compatibility_midnightlib_versions
-    }
-}
-
-shadowJar {
-    configurations = [project.configurations.shadowBundle]
-    archiveClassifier = 'dev-shadow'
-}
-
-remapJar {
-    inputFile.set shadowJar.archiveFile
-    from(rootDir.toPath().toString() + "/LICENSE") {
-        rename { "${it}_${rootProject.archives_name}"}
-    }
-    archiveFileName = "${rootProject.archives_name}-${rootProject.version}+${project.minecraft_version}-${project.name}.jar"
 }
 
 modrinth {
     token = System.getenv("MODRINTH_TOKEN")
     projectId = 'ynA13Vjn'
-    versionNumber = rootProject.mod_version + "-fabric"
+    versionNumber = rootProject.version.toString() + "-fabric"
     versionType = rootProject.getPublishVersionType()
     uploadFile = remapJar
     loaders = ["fabric", "quilt"]
@@ -93,5 +53,5 @@ modrinth {
         required.project 'midnightlib'
         optional.project 'modmenu'
     }
-    changelog = rootProject.ext.publish_changelog
+    changelog = rootProject.publish_changelog
 }

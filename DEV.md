@@ -53,7 +53,7 @@ the next free value.
 ```java
 SpeechRecognizer.register(
         10,
-        ResourceLocation.fromNamespaceAndPath("my_mod", "my_recognizer"),
+        new ResourceLocation("my_mod", "my_recognizer"),
         MyRecognizer::new
 );
 ```
@@ -72,10 +72,10 @@ recognizers.
 
 Fabric listeners use `McmtiSpeechRecognizerEvents`.
 
-NeoForge listeners must register on MCMti's mod bus:
+Forge listeners must register on MCMti's mod bus:
 
 ```java
-MicrophoneTextInputNeoForge.getEventBus().addListener(
+MicrophoneTextInputForge.getEventBus().addListener(
         (SpeechRecognizerEvent.Activated event) -> {
             // event.getRecognizer()
         }

@@ -1,26 +1,42 @@
-architectury {
-    common rootProject.enabled_platforms.split(',')
+plugins {
+    id 'multiloader-common'
+    id 'net.neoforged.moddev.legacyforge'
+}
+
+legacyForge {
+    mcpVersion = minecraft_version
+    if (file("src/main/resources/META-INF/accesstransformer.cfg").exists()) {
+        accessTransformers = ["src/main/resources/META-INF/accesstransformer.cfg"]
+    }
+    parchment {
+        minecraftVersion = parchment_minecraft
+        mappingsVersion = parchment_version
+    }
 }
 
 dependencies {
-    // We depend on Fabric Loader here to use the Fabric @Environment annotations,
-    // which get remapped to the correct annotations on each platform.
-    // Do NOT use other classes from Fabric Loader.
-    modImplementation "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version"
+    compileOnly 'org.jetbrains:annotations:26.0.2'
+    compileOnly group: 'org.spongepowered', name: 'mixin', version: '0.8.5'
+    implementation group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.1'
 
-    modImplementation "maven.modrinth:midnightlib:${rootProject.midnightlib_version}-fabric"
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    // MidnightLib provides the config screen/API used by McmtiConfig.
+    // The Forge variant is used as the common compile-time reference; the loader
+    // modules pick the artifact matching their own loader.
+    modCompileOnly "maven.modrinth:midnightlib:${midnightlib_version}-forge"
 }
 
-publishing {
-    publications {
-        mcmtiCommon(MavenPublication) {
-            artifactId = "mcmti-common"
-            // Loom's `jar` task emits the NAMED jar with classifier `dev`.
-            // Publish it as the MAIN artifact (empty classifier) so consumers
-            // resolve me.jaffe2718:mcmti-common:3.0.0 and get the classes.
-            artifact(jar) { classifier = '' }
-            artifact sourcesJar
-        }
+configurations {
+    commonJava {
+        canBeResolved = false
+        canBeConsumed = true
     }
+    commonResources {
+        canBeResolved = false
+        canBeConsumed = true
+    }
+}
+
+artifacts {
+    commonJava sourceSets.main.java.sourceDirectories.singleFile
+    commonResources sourceSets.main.resources.sourceDirectories.singleFile
 }
