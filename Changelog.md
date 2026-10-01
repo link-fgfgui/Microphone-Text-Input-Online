@@ -3,7 +3,7 @@
 ### 3.0.0
 
 1. API: add extensible `SpeechRecognizer` registration with priority selection
-2. API: restore Fabric and NeoForge recognizer lifecycle events
+2. API: restore Fabric and Forge recognizer lifecycle events
 3. fix: initialize after client startup so late third-party registrations work
 4. fix: failed recognizers fall back to the next enabled implementation
 5. fix: serialize registry changes and protect recognition state across config reloads
@@ -17,12 +17,6 @@
 
 ## Dependencies
 
-| Minecraft | Fabric                                                                                                                                                                                    | NeoForge                                                                                                                                                                                                    |
-|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 1.21      | [fabric-api 0.102.0+1.21](https://modrinth.com/mod/fabric-api/version/0.102.0+1.21) <br> [midnightlib 1.9.2-fabric](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.1-fabric)     | [architechury-api 13.0.8+neoforge](https://modrinth.com/mod/architectury-api/version/13.0.8+neoforge) <br> [midnightlib 1.9.2-neoforge](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.1-neoforge) |
-| 1.21.1    | [fabric-api 0.116.8+1.21.1](https://modrinth.com/mod/fabric-api/version/0.116.8+1.21.1) <br> [midnightlib 1.9.2-fabric](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.1-fabric) | [architechury-api 13.0.8+neoforge](https://modrinth.com/mod/architectury-api/version/13.0.8+neoforge) <br> [midnightlib 1.9.2-neoforge](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.1-neoforge) |
-| 1.21.4    | [fabric-api 0.119.4+1.21.4](https://modrinth.com/mod/fabric-api/version/0.119.4+1.21.4) <br> [midnightlib 1.9.2-fabric](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.5-fabric) | [architechury-api 15.0.3+neoforge](https://modrinth.com/mod/architectury-api/version/15.0.3+neoforge) <br> [midnightlib 1.9.2-neoforge](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.5-neoforge) |
-| 1.21.5    | [fabric-api 0.128.2+1.21.5](https://modrinth.com/mod/fabric-api/version/0.128.2+1.21.5) <br> [midnightlib 1.9.2-fabric](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.5-fabric) | [architechury-api 16.1.4+neoforge](https://modrinth.com/mod/architectury-api/version/16.1.4+neoforge) <br> [midnightlib 1.9.2-neoforge](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.5-neoforge) |
-| 1.21.6    | [fabric-api 0.128.2+1.21.6](https://modrinth.com/mod/fabric-api/version/0.128.2+1.21.6) <br> [midnightlib 1.9.2-fabric](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.8-fabric) | [architechury-api 17.0.6+neoforge](https://modrinth.com/mod/architectury-api/version/17.0.6+neoforge) <br> [midnightlib 1.9.2-neoforge](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.8-neoforge) |
-| 1.21.7    | [fabric-api 0.129.0+1.21.7](https://modrinth.com/mod/fabric-api/version/0.129.0+1.21.7) <br> [midnightlib 1.9.2-fabric](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.8-fabric) | [architechury-api 17.0.8+neoforge](https://modrinth.com/mod/architectury-api/version/17.0.8+neoforge) <br> [midnightlib 1.9.2-neoforge](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.8-neoforge) |
-| 1.21.8    | [fabric-api 0.136.1+1.21.8](https://modrinth.com/mod/fabric-api/version/0.136.1+1.21.8) <br> [midnightlib 1.9.2-fabric](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.8-fabric) | [architechury-api 17.0.8+neoforge](https://modrinth.com/mod/architectury-api/version/17.0.8+neoforge) <br> [midnightlib 1.9.2-neoforge](https://modrinth.com/mod/midnightlib/version/1.9.2+1.21.8-neoforge) |
+| Minecraft | Fabric | Forge |
+|-----------|--------|-------|
+| 1.20.1    | [fabric-api 0.92.7+1.20.1](https://modrinth.com/mod/fabric-api/version/0.92.7+1.20.1) <br> [midnightlib 1.9.1+1.20.1](https://modrinth.com/mod/midnightlib/version/1.9.1+1.20.1) | [forge 47.4.10](https://files.minecraftforge.net/net/minecraftforge/forge/index_1.20.1.html) <br> [midnightlib 1.9.1+1.20.1](https://modrinth.com/mod/midnightlib/version/1.9.1+1.20.1) |
